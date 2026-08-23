@@ -27,9 +27,6 @@ select {
   font: inherit;
 }
 
-<<<<<<< Updated upstream
-.app {
-=======
 button {
   border: 0;
   background: transparent;
@@ -914,7 +911,6 @@ ol {
 .app-layout {
   display: grid;
   grid-template-columns: 297px minmax(0, 1fr);
->>>>>>> Stashed changes
   min-height: 100vh;
   padding: 48px 20px;
 }
@@ -965,9 +961,6 @@ h1 {
   background: #ffffff;
 }
 
-<<<<<<< Updated upstream
-.step span {
-=======
 .tab-button.is-active {
   border-color: var(--color-border-strong);
 }
@@ -1042,7 +1035,6 @@ h1 {
 }
 
 .message-list {
->>>>>>> Stashed changes
   display: grid;
   width: 36px;
   height: 36px;
@@ -1053,12 +1045,6 @@ h1 {
   font-weight: 800;
 }
 
-<<<<<<< Updated upstream
-.step strong {
-  display: block;
-  margin-top: 28px;
-  font-size: 1.1rem;
-=======
 .message-list-empty {
   margin-top: var(--space-8);
 }
@@ -1070,17 +1056,14 @@ h1 {
   align-items: center;
   gap: 40px;
   border-top: 1px solid var(--color-border-default);
->>>>>>> Stashed changes
 }
 
 @media (max-width: 720px) {
   .app {
     padding: 32px 16px;
   }
+}
 
-<<<<<<< Updated upstream
-  .panel {
-=======
 .message-profile {
   display: grid;
   grid-template-columns: 20px 59px minmax(0, 1fr);
@@ -1458,7 +1441,6 @@ h1 {
   }
 
   .overview-grid {
->>>>>>> Stashed changes
     grid-template-columns: 1fr;
     margin-top: 32px;
   }
