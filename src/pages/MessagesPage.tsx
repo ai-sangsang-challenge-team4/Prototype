@@ -240,6 +240,7 @@ const initialThreads: BoardThread[] = [
       '안녕하세요, 학부모님. 말씀해 주신 상황을 확인한 뒤 오늘 하교 전까지 안내드리겠습니다.',
     isPinned: false,
     messageDateLabel: '2026년 8월 23일 일요일',
+    moderatedSummary: '친구와의 갈등 이후 학생 정서 확인과 후속 안내를 요청함.',
     originalMessage:
       '어제 쉬는 시간에 있었던 일 때문에 아이가 계속 속상해합니다. 상대 학생과 어떤 대화가 있었는지 확인 부탁드립니다.',
     analysis: {
@@ -507,6 +508,13 @@ const threadRiskToSystemRisk: Record<RiskLevel, SystemRiskLevel> = {
   urgent: 'emergency',
 };
 
+const shouldShowBufferedSummary: Record<RiskLevel, boolean> = {
+  normal: false,
+  attention: true,
+  danger: true,
+  urgent: true,
+};
+
 const statusLabel: Record<ThreadStatus, string> = {
   before: '상담 전',
   inProgress: '상담 중',
@@ -638,34 +646,121 @@ function formatNow() {
   return '방금 전';
 }
 
-function renderOriginalMessage(
+type OriginalHighlightSegment = {
+  end: number;
+  factor: RiskFactor;
+  start: number;
+};
+
+function getVisibleRiskFactors(thread: BoardThread) {
+  return (
+    thread.analysis?.riskFactors.filter(
+      (factor) => factor.status !== 'unknown',
+    ) ?? []
+  );
+}
+
+function getBufferedSummaryText(thread: BoardThread) {
+  if (!shouldShowBufferedSummary[thread.risk]) {
+    return undefined;
+  }
+
+  const analysisSummary =
+    thread.analysis?.summary.status === 'ready'
+      ? thread.analysis.summary.text
+      : undefined;
+
+  return thread.moderatedSummary ?? analysisSummary;
+}
+
+function getOriginalHighlightSegments(
   message: string,
-  evidence?: string,
-): ReactNode {
+  riskFactors: RiskFactor[],
+) {
+  const segments: OriginalHighlightSegment[] = [];
+
+  riskFactors.forEach((factor) => {
+    const evidence = factor.evidence.trim();
+
+    if (!evidence) {
+      return;
+    }
+
+    let searchStart = 0;
+    let evidenceIndex = message.indexOf(evidence, searchStart);
+
+    while (evidenceIndex >= 0) {
+      const end = evidenceIndex + evidence.length;
+      const isOverlapping = segments.some(
+        (segment) => evidenceIndex < segment.end && end > segment.start,
+      );
+
+      if (!isOverlapping) {
+        segments.push({
+          end,
+          factor,
+          start: evidenceIndex,
+        });
+      }
+
+      searchStart = end;
+      evidenceIndex = message.indexOf(evidence, searchStart);
+    }
+  });
+
+  return segments.sort((a, b) => a.start - b.start);
+}
+
+function renderHighlightedOriginalMessage({
+  activeFactorId,
+  message,
+  onSelectRiskFactor,
+  riskFactors,
+}: {
+  activeFactorId?: string;
+  message: string;
+  onSelectRiskFactor: (factorId: string) => void;
+  riskFactors: RiskFactor[];
+}): ReactNode {
   if (!message) {
     return '확인 가능한 원문이 없습니다.';
   }
 
-  if (!evidence) {
+  const segments = getOriginalHighlightSegments(message, riskFactors);
+
+  if (segments.length === 0) {
     return message;
   }
 
-  const evidenceIndex = message.indexOf(evidence);
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
 
-  if (evidenceIndex < 0) {
-    return message;
+  segments.forEach((segment, index) => {
+    if (cursor < segment.start) {
+      nodes.push(message.slice(cursor, segment.start));
+    }
+
+    nodes.push(
+      <button
+        className={`board-original-highlight${
+          activeFactorId === segment.factor.id ? ' is-active' : ''
+        }`}
+        key={`${segment.factor.id}-${segment.start}-${index}`}
+        onClick={() => onSelectRiskFactor(segment.factor.id)}
+        type="button"
+      >
+        {message.slice(segment.start, segment.end)}
+      </button>,
+    );
+
+    cursor = segment.end;
+  });
+
+  if (cursor < message.length) {
+    nodes.push(message.slice(cursor));
   }
 
-  const before = message.slice(0, evidenceIndex);
-  const after = message.slice(evidenceIndex + evidence.length);
-
-  return (
-    <>
-      {before}
-      <mark>{evidence}</mark>
-      {after}
-    </>
-  );
+  return nodes;
 }
 
 function ExternalLinkIcon(props: SVGProps<SVGSVGElement>) {
@@ -696,6 +791,23 @@ function FileSearchIcon(props: SVGProps<SVGSVGElement>) {
     >
       <path
         d="M4.5 18A1.5 1.5 0 0 1 3 16.5v-13A1.5 1.5 0 0 1 4.5 2h6.35L17 8.15V16.5a1.5 1.5 0 0 1-1.5 1.5h-11Zm5.6-9.1V3.5H4.5v13h11V8.9h-5.4Zm2.36 5.92-1.5-1.5a2.64 2.64 0 0 1-1.32.35A2.68 2.68 0 0 1 6.95 11a2.68 2.68 0 0 1 2.69-2.67A2.68 2.68 0 0 1 12.32 11c0 .48-.13.92-.35 1.3l1.5 1.5-1.01 1.02Zm-2.82-2.55A1.27 1.27 0 1 0 9.64 9.73a1.27 1.27 0 0 0 0 2.54Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function OriginalViewerIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      viewBox="0 0 22 15"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M14.1875 10.6875C15.0625 9.8125 15.5 8.75 15.5 7.5C15.5 6.25 15.0625 5.1875 14.1875 4.3125C13.3125 3.4375 12.25 3 11 3C9.75 3 8.6875 3.4375 7.8125 4.3125C6.9375 5.1875 6.5 6.25 6.5 7.5C6.5 8.75 6.9375 9.8125 7.8125 10.6875C8.6875 11.5625 9.75 12 11 12C12.25 12 13.3125 11.5625 14.1875 10.6875ZM9.0875 9.4125C8.5625 8.8875 8.3 8.25 8.3 7.5C8.3 6.75 8.5625 6.1125 9.0875 5.5875C9.6125 5.0625 10.25 4.8 11 4.8C11.75 4.8 12.3875 5.0625 12.9125 5.5875C13.4375 6.1125 13.7 6.75 13.7 7.5C13.7 8.25 13.4375 8.8875 12.9125 9.4125C12.3875 9.9375 11.75 10.2 11 10.2C10.25 10.2 9.6125 9.9375 9.0875 9.4125ZM4.35 12.9625C2.35 11.6042 0.9 9.78333 0 7.5C0.9 5.21667 2.35 3.39583 4.35 2.0375C6.35 0.679167 8.56667 0 11 0C13.4333 0 15.65 0.679167 17.65 2.0375C19.65 3.39583 21.1 5.21667 22 7.5C21.1 9.78333 19.65 11.6042 17.65 12.9625C15.65 14.3208 13.4333 15 11 15C8.56667 15 6.35 14.3208 4.35 12.9625ZM16.1875 11.5125C17.7625 10.5208 18.9667 9.18333 19.8 7.5C18.9667 5.81667 17.7625 4.47917 16.1875 3.4875C14.6125 2.49583 12.8833 2 11 2C9.11667 2 7.3875 2.49583 5.8125 3.4875C4.2375 4.47917 3.03333 5.81667 2.2 7.5C3.03333 9.18333 4.2375 10.5208 5.8125 11.5125C7.3875 12.5042 9.11667 13 11 13C12.8833 13 14.6125 12.5042 16.1875 11.5125Z"
         fill="currentColor"
       />
     </svg>
@@ -1167,59 +1279,328 @@ function DraftResumeDialog({
   );
 }
 
-type OriginalMessageModalProps = {
+type OriginalMessageRequest = {
   evidence?: string;
-  onOpenChange: (open: boolean) => void;
+};
+
+type OriginalMessageConfirmDialogProps = {
+  onCancel: () => void;
+  onConfirm: () => void;
   open: boolean;
+};
+
+function OriginalMessageConfirmDialog({
+  onCancel,
+  onConfirm,
+  open,
+}: OriginalMessageConfirmDialogProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCancel();
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onCancel, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      className="board-original-confirm-overlay"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onCancel();
+        }
+      }}
+      role="presentation"
+    >
+      <section
+        aria-describedby="board-original-confirm-description"
+        aria-labelledby="board-original-confirm-title"
+        aria-modal="true"
+        className="board-original-confirm-modal"
+        role="dialog"
+      >
+        <h2 className="sr-only" id="board-original-confirm-title">
+          원문 열람 안내
+        </h2>
+        <button
+          aria-label="닫기"
+          className="board-original-confirm-close"
+          onClick={onCancel}
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M6.4 19 5 17.6 10.6 12 5 6.4 6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+        <p
+          className="board-original-confirm-copy"
+          id="board-original-confirm-description"
+        >
+          원문에는 정서적으로 부담이 될 수 있는 표현이 포함되어 있습니다.
+          <br />
+          원문을 확인하시겠습니까?
+          <br />
+          <br />
+          원문을 열람하면 열람 기록이 저장됩니다.
+        </p>
+        <div className="board-original-confirm-actions">
+          <button
+            className="board-original-confirm-action"
+            onClick={onCancel}
+            type="button"
+          >
+            취소
+          </button>
+          <button
+            className="board-original-confirm-action board-original-confirm-action--primary"
+            onClick={onConfirm}
+            type="button"
+          >
+            원문 확인
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type OriginalMessageViewerProps = {
+  onClose: () => void;
+  selectedEvidence?: string;
   thread: BoardThread;
 };
 
-function OriginalMessageModal({
-  evidence,
-  onOpenChange,
-  open,
+function OriginalMessageViewer({
+  onClose,
+  selectedEvidence,
   thread,
-}: OriginalMessageModalProps) {
-  const evidenceFound = Boolean(
-    evidence && thread.originalMessage?.includes(evidence),
+}: OriginalMessageViewerProps) {
+  const [isRiskListOpen, setIsRiskListOpen] = useState(true);
+  const riskFactors = useMemo(() => getVisibleRiskFactors(thread), [thread]);
+  const highlightedRiskFactors = useMemo(
+    () =>
+      riskFactors.filter(
+        (factor) =>
+          Boolean(factor.evidence.trim()) &&
+          Boolean(thread.originalMessage?.includes(factor.evidence)),
+      ),
+    [riskFactors, thread.originalMessage],
   );
+  const initialActiveFactorId =
+    highlightedRiskFactors.find((factor) => factor.evidence === selectedEvidence)
+      ?.id ??
+    highlightedRiskFactors[0]?.id ??
+    riskFactors[0]?.id;
+  const [activeFactorId, setActiveFactorId] = useState<string | undefined>(
+    initialActiveFactorId,
+  );
+  const [expandedFactorIds, setExpandedFactorIds] = useState<string[]>(
+    initialActiveFactorId ? [initialActiveFactorId] : [],
+  );
+  const activeFactor = riskFactors.find(
+    (factor) => factor.id === activeFactorId,
+  );
+  const detectedCount = highlightedRiskFactors.length || riskFactors.length;
+
+  useEffect(() => {
+    setActiveFactorId(initialActiveFactorId);
+    setExpandedFactorIds(initialActiveFactorId ? [initialActiveFactorId] : []);
+  }, [initialActiveFactorId, thread.id]);
+  const expandAndSelectRiskFactor = (factorId: string) => {
+    setActiveFactorId(factorId);
+    setExpandedFactorIds((currentFactorIds) =>
+      currentFactorIds.includes(factorId)
+        ? currentFactorIds
+        : [...currentFactorIds, factorId],
+    );
+  };
+  const toggleRiskFactor = (factorId: string) => {
+    setActiveFactorId(factorId);
+    setExpandedFactorIds((currentFactorIds) =>
+      currentFactorIds.includes(factorId)
+        ? currentFactorIds.filter((currentFactorId) => currentFactorId !== factorId)
+        : [...currentFactorIds, factorId],
+    );
+  };
 
   return (
-    <Modal
-      description={
-        evidence
-          ? '선택한 판단 근거가 원문 안에서 강조되어 표시됩니다.'
-          : '학부모가 작성한 원문입니다.'
-      }
-      footer={
+    <div className="board-original-viewer">
+      <div className="board-info-box board-original-viewer-info">
+        <span aria-hidden="true">i</span>
+        <p>
+          원문은 학부모가 최종 전송한 내용입니다.
+          <br />
+          하이라이트된 표현을 선택해 탐지된 위험 요소와 판단 이유를 확인해
+          주세요.
+        </p>
         <button
-          className="board-primary-button board-modal-close-action"
-          onClick={() => onOpenChange(false)}
+          className="board-outline-button board-original-viewer-close"
+          onClick={onClose}
           type="button"
         >
-          확인
+          대화로 돌아가기
         </button>
-      }
-      onOpenChange={onOpenChange}
-      open={open}
-      size="lg"
-      title="원문 확인"
-    >
-      <div className="board-original-modal-content">
-        <div className="board-original-notice">
-          원문 열람 기록은 처리 기록에 자동으로 저장됩니다.
+      </div>
+
+      <section
+        aria-labelledby="board-original-message-title"
+        className="board-original-viewer-panel board-original-message-panel"
+      >
+        <div className="board-original-viewer-header">
+          <div>
+            <OriginalViewerIcon className="board-original-viewer-title-icon" />
+            <h2 id="board-original-message-title">원문 확인</h2>
+          </div>
         </div>
-        {evidence && !evidenceFound ? (
-          <p className="board-original-help">
-            선택한 근거 문구가 원문과 정확히 일치하지 않아 전체 원문을
-            표시합니다.
+        <p className="board-original-viewer-message">
+          {renderHighlightedOriginalMessage({
+            activeFactorId,
+            message: thread.originalMessage ?? '',
+            onSelectRiskFactor: expandAndSelectRiskFactor,
+            riskFactors,
+          })}
+        </p>
+      </section>
+
+      <section
+        aria-labelledby="board-original-risk-title"
+        className="board-original-viewer-panel board-original-risk-panel"
+      >
+        <div className="board-original-viewer-header">
+          <div>
+            <RiskGuideIcon className="board-original-risk-title-icon" />
+            <h2 id="board-original-risk-title">
+              탐지된 위험 표현 목록 ({detectedCount})
+            </h2>
+          </div>
+          <button
+            aria-expanded={isRiskListOpen}
+            className="board-outline-button board-original-risk-toggle"
+            onClick={() => setIsRiskListOpen((isOpen) => !isOpen)}
+            type="button"
+          >
+            <span>{isRiskListOpen ? '접기' : '펼치기'}</span>
+            <svg
+              aria-hidden="true"
+              className={isRiskListOpen ? 'is-open' : ''}
+              fill="none"
+              viewBox="0 0 12 8"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6 7.4 0 1.4 1.4 0 6 4.575 10.6 0 12 1.4 6 7.4Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {isRiskListOpen ? (
+          riskFactors.length > 0 ? (
+            <div className="board-original-risk-list">
+              {riskFactors.map((factor) => {
+                const isExpanded = expandedFactorIds.includes(factor.id);
+
+                return (
+                  <article
+                    className={`board-original-risk-card${
+                      isExpanded ? ' is-expanded' : ''
+                    }`}
+                    key={factor.id}
+                  >
+                    <button
+                      aria-expanded={isExpanded}
+                      className="board-original-risk-card-trigger"
+                      onClick={() => toggleRiskFactor(factor.id)}
+                      type="button"
+                    >
+                      <span className="board-original-risk-card-title">
+                        <RiskFactorIcon factor={factor} />
+                        <strong>{factor.name}</strong>
+                      </span>
+                      <svg
+                        aria-hidden="true"
+                        className={isExpanded ? 'is-open' : ''}
+                        fill="none"
+                        viewBox="0 0 12 8"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M6 7.4 0 1.4 1.4 0 6 4.575 10.6 0 12 1.4 6 7.4Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                    {factor.evidence ? (
+                      <button
+                        className="board-original-risk-evidence"
+                        onClick={() => expandAndSelectRiskFactor(factor.id)}
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="board-original-risk-evidence-marker"
+                        />
+                        <span className="board-original-highlight">
+                          “{factor.evidence}”
+                        </span>
+                      </button>
+                    ) : null}
+                    {isExpanded ? (
+                      <div className="board-original-risk-detail">
+                        <div>
+                          <strong>설명</strong>
+                          <p>{factor.description}</p>
+                        </div>
+                        <div>
+                          <strong>판단 근거</strong>
+                          <p>{factor.rationale}</p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              className="board-risk-empty board-risk-factor-empty"
+              description="이 메시지에서는 별도 위험 요소가 감지되지 않았습니다."
+              title="없음"
+            />
+          )
+        ) : activeFactor ? (
+          <p className="board-original-risk-collapsed">
+            선택된 표현: “{activeFactor.evidence || activeFactor.name}”
           </p>
         ) : null}
-        <p className="board-original-message">
-          {renderOriginalMessage(thread.originalMessage ?? '', evidence)}
-        </p>
-      </div>
-    </Modal>
+      </section>
+    </div>
   );
 }
 
@@ -1845,18 +2226,22 @@ function ThreadDetail({
 }: DetailProps) {
   const [activeDetailTab, setActiveDetailTab] =
     useState<DetailTab>('conversation');
-  const [originalViewer, setOriginalViewer] = useState<{
-    evidence?: string;
-  } | null>(null);
+  const [originalRequest, setOriginalRequest] =
+    useState<OriginalMessageRequest | null>(null);
+  const [originalViewer, setOriginalViewer] =
+    useState<OriginalMessageRequest | null>(null);
   const isLocked = thread.risk === 'urgent' && thread.riskReviewRequired;
   const hasDraft = thread.draftText.trim().length > 0;
   const lockedGuide =
     riskStageGuides[
       thread.analysis?.systemRiskLevel ?? threadRiskToSystemRisk[thread.risk]
     ];
+  const bufferedSummaryText = getBufferedSummaryText(thread);
+  const visibleConversationReplies = bufferedSummaryText
+    ? thread.replies.filter((reply) => reply.authorRole !== 'parent')
+    : thread.replies;
   const showBufferedSummaryOnly =
-    Boolean(thread.moderatedSummary) &&
-    (thread.risk === 'urgent' || thread.risk === 'danger');
+    Boolean(bufferedSummaryText) && visibleConversationReplies.length === 0;
   const canInspectOriginal = Boolean(
     thread.analysis?.canViewOriginal &&
       thread.analysis.originalMessageAvailable &&
@@ -1865,6 +2250,7 @@ function ThreadDetail({
 
   useEffect(() => {
     setActiveDetailTab('conversation');
+    setOriginalRequest(null);
     setOriginalViewer(null);
   }, [thread.id]);
 
@@ -1873,8 +2259,17 @@ function ThreadDetail({
       return;
     }
 
-    setOriginalViewer({ evidence });
-    onOriginalViewed(thread.id, evidence);
+    setOriginalRequest({ evidence });
+  };
+
+  const confirmOriginalViewer = () => {
+    if (!originalRequest) {
+      return;
+    }
+
+    setOriginalViewer(originalRequest);
+    setOriginalRequest(null);
+    onOriginalViewed(thread.id, originalRequest.evidence);
   };
 
   return (
@@ -1939,7 +2334,25 @@ function ThreadDetail({
               fill="currentColor"
             />
           </svg>
-          <strong>{detailTabLabel[activeDetailTab]}</strong>
+          {originalViewer ? (
+            <>
+              <span>{detailTabLabel[activeDetailTab]}</span>
+              <svg
+                aria-hidden="true"
+                fill="none"
+                viewBox="0 0 7 13"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M1.0552 13 0 11.8462 4.8896 6.5 0 1.15375 1.0552 0 7 6.5 1.0552 13Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <strong>원문 열람</strong>
+            </>
+          ) : (
+            <strong>{detailTabLabel[activeDetailTab]}</strong>
+          )}
         </nav>
       </header>
 
@@ -1949,7 +2362,11 @@ function ThreadDetail({
             aria-current={activeDetailTab === tab ? 'page' : undefined}
             className={activeDetailTab === tab ? 'is-active' : ''}
             key={tab}
-            onClick={() => setActiveDetailTab(tab)}
+            onClick={() => {
+              setActiveDetailTab(tab);
+              setOriginalRequest(null);
+              setOriginalViewer(null);
+            }}
             type="button"
           >
             {detailTabLabel[tab]}
@@ -1987,7 +2404,15 @@ function ThreadDetail({
         </div>
       </div>
 
-      {activeDetailTab === 'conversation' ? (
+      {originalViewer ? (
+        <OriginalMessageViewer
+          onClose={() => setOriginalViewer(null)}
+          selectedEvidence={originalViewer.evidence}
+          thread={thread}
+        />
+      ) : null}
+
+      {!originalViewer && activeDetailTab === 'conversation' ? (
         <>
           <div className="board-info-box">
             <span aria-hidden="true">i</span>
@@ -2018,7 +2443,7 @@ function ThreadDetail({
           <span>{thread.messageDateLabel ?? '2026년 8월 10일 월요일'}</span>
         </div>
 
-        {thread.moderatedSummary ? (
+        {bufferedSummaryText ? (
           <article className="board-moderation-message">
             <div className="board-reply-author">
               <ProfileAvatar className="board-mini-avatar" />
@@ -2042,7 +2467,7 @@ function ThreadDetail({
                     </svg>
                     <span>위험 메시지 완충 요약</span>
                   </strong>
-                  <p>{thread.moderatedSummary}</p>
+                  <p>{bufferedSummaryText}</p>
                 </div>
                 <div className="board-moderation-actions">
                   <button
@@ -2065,34 +2490,30 @@ function ThreadDetail({
           </article>
         ) : null}
 
-        {showBufferedSummaryOnly
-          ? null
-          : thread.replies.map((reply) => (
-              <article
-                className={`board-reply board-reply-${reply.authorRole}`}
-                key={reply.id}
-              >
-                <div className="board-reply-author">
-                  <ProfileAvatar className="board-mini-avatar" />
-                  <strong>{reply.authorName}</strong>
+        {visibleConversationReplies.map((reply) => (
+          <article
+            className={`board-reply board-reply-${reply.authorRole}`}
+            key={reply.id}
+          >
+            <div className="board-reply-author">
+              <ProfileAvatar className="board-mini-avatar" />
+              <strong>{reply.authorName}</strong>
+            </div>
+            <div className="board-reply-row">
+              {reply.authorRole === 'teacher' ? (
+                <div className="board-reply-time">
+                  {reply.readByParent ? <span>1</span> : null}
+                  <time>{reply.time}</time>
                 </div>
-                <div className="board-reply-row">
-                  {reply.authorRole === 'teacher' ? (
-                    <div className="board-reply-time">
-                      {reply.readByParent ? <span>1</span> : null}
-                      <time>{reply.time}</time>
-                    </div>
-                  ) : null}
-                  <div className="board-reply-bubble">
-                    <span>{reply.label}</span>
-                    <p>{reply.content}</p>
-                  </div>
-                  {reply.authorRole === 'parent' ? (
-                    <time>{reply.time}</time>
-                  ) : null}
-                </div>
-              </article>
-            ))}
+              ) : null}
+              <div className="board-reply-bubble">
+                <span>{reply.label}</span>
+                <p>{reply.content}</p>
+              </div>
+              {reply.authorRole === 'parent' ? <time>{reply.time}</time> : null}
+            </div>
+          </article>
+        ))}
         <div className={`board-answer-box${isLocked ? ' is-locked' : ''}`}>
           {isLocked ? (
             <>
@@ -2144,7 +2565,7 @@ function ThreadDetail({
                 </p>
               </div>
               <div className="board-answer-actions board-answer-actions--cta">
-                <span>{hasDraft ? '작성 중인 답변이 있습니다' : '새 답변 작성'}</span>
+                {hasDraft ? <span>작성 중인 답변이 있습니다</span> : null}
                 <button
                   className="board-primary-button board-reply-compose-button"
                   onClick={() => onOpenReplyComposer(thread.id)}
@@ -2160,7 +2581,7 @@ function ThreadDetail({
         </>
       ) : null}
 
-      {activeDetailTab === 'risk' ? (
+      {!originalViewer && activeDetailTab === 'risk' ? (
         <RiskAnalysisPanel
           onReviewComplete={onReviewComplete}
           onOriginalOpen={openOriginalViewer}
@@ -2169,19 +2590,14 @@ function ThreadDetail({
         />
       ) : null}
 
-      {activeDetailTab === 'activity' ? (
+      {!originalViewer && activeDetailTab === 'activity' ? (
         <ActivityLogPanel thread={thread} />
       ) : null}
 
-      <OriginalMessageModal
-        evidence={originalViewer?.evidence}
-        onOpenChange={(open) => {
-          if (!open) {
-            setOriginalViewer(null);
-          }
-        }}
-        open={originalViewer !== null}
-        thread={thread}
+      <OriginalMessageConfirmDialog
+        onCancel={() => setOriginalRequest(null)}
+        onConfirm={confirmOriginalViewer}
+        open={originalRequest !== null}
       />
     </section>
   );
@@ -2201,6 +2617,7 @@ function ReplyComposerPage({
   thread,
 }: ReplyComposerPageProps) {
   const hasDraft = thread.draftText.trim().length > 0;
+  const bufferedSummaryText = getBufferedSummaryText(thread);
   const helperItems = [
     '사실 확인이 필요한 내용은 단정하지 않고 확인 예정으로 표현합니다.',
     '학생 안전이나 정서 관련 내용은 관찰 및 상담 계획과 함께 안내합니다.',
@@ -2294,10 +2711,7 @@ function ReplyComposerPage({
       <div className="board-reply-composer">
         <section className="board-reply-context-panel">
           <h2>메시지 확인</h2>
-          <p>{thread.moderatedSummary ?? thread.latestMessage}</p>
-          {thread.originalMessage ? (
-            <blockquote>{thread.originalMessage}</blockquote>
-          ) : null}
+          <p>{bufferedSummaryText ?? thread.latestMessage}</p>
         </section>
 
         <section className="board-reply-helper-panel">

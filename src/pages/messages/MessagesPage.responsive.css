@@ -73,6 +73,8 @@
   .board-risk-section-header,
   .board-risk-review-footer,
   .board-student-safety-row,
+  .board-original-viewer-info,
+  .board-original-viewer-header,
   .board-reply-compose-actions,
   .board-reply-compose-actions > div,
   .board-risk-lock-review {
@@ -141,6 +143,24 @@
     width: 100%;
   }
 
+  .board-original-confirm-overlay {
+    padding: 16px;
+  }
+
+  .board-original-confirm-modal {
+    gap: 36px;
+  }
+
+  .board-original-confirm-copy {
+    font-size: 20px;
+    line-height: 32px;
+  }
+
+  .board-original-confirm-action {
+    padding: 13px 12px;
+    font-size: 18px;
+  }
+
   .board-detail-heading,
   .board-answer-box.is-locked,
   .board-moderation-card,
@@ -195,6 +215,7 @@
 
   .board-risk-guide,
   .board-risk-evidence-panel,
+  .board-original-viewer-panel,
   .board-activity-panel,
   .board-student-safety-card,
   .board-reply-context-panel,
@@ -273,6 +294,35 @@
     grid-column: 1 / -1;
   }
 
+  .board-original-viewer {
+    gap: 24px;
+  }
+
+  .board-original-viewer-panel {
+    gap: 24px;
+  }
+
+  .board-original-viewer-info p,
+  .board-original-viewer-message,
+  .board-original-risk-detail strong,
+  .board-original-risk-detail p {
+    font-size: 18px;
+    line-height: 30px;
+  }
+
+  .board-original-risk-evidence .board-original-highlight {
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .board-original-viewer-message {
+    padding: 22px 20px;
+  }
+
+  .board-original-risk-detail {
+    padding-left: 0;
+  }
+
   .board-emergency-procedure-modal {
     width: min(100%, calc(100vw - 32px));
     min-height: auto;
@@ -338,6 +388,8 @@
 
   .board-risk-guide-button,
   .board-risk-section-header .board-outline-button,
+  .board-original-viewer-close,
+  .board-original-risk-toggle,
   .board-student-safety-row .board-risk-action-button,
   .board-risk-review-submit,
   .board-risk-recheck-button,
