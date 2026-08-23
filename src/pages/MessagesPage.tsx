@@ -20,6 +20,10 @@ import {
   type BadgeVariant,
   type StatusChipStatus,
 } from '../components/ui';
+import {
+  emergencyOfficialProcedurePostId,
+  replyReferenceGuidePostId,
+} from '../guidePostIds';
 import defaultProfileImage from '../assets/profile.png';
 import './MessagesPage.css';
 
@@ -691,9 +695,6 @@ const riskStageGuides: Record<
       '위험도 검토가 끝난 뒤 공식 절차에 맞춰 답변을 진행할 수 있습니다.',
   },
 };
-
-const emergencyOfficialProcedurePostId =
-  'guide-emergency-official-procedure';
 
 function formatNow(date = new Date()) {
   const parts = new Intl.DateTimeFormat('ko-KR', {
@@ -3095,14 +3096,14 @@ function ReplyComposerPage({
           : '긴급 단계: 개별 답변 초안은 제공되지 않으며 즉시 오프라인 공식 절차에 따라 대응합니다.';
   const draftStatusText = isLocked
     ? '위험도 검토 필요'
-    : thread.officialTemplateApplied
-      ? '공식 템플릿 적용됨'
-      : thread.aiDraftGenerated
-        ? 'AI 초안 적용됨'
-        : thread.draftSavedAt
-          ? `마지막 임시저장 ${thread.draftSavedAt}`
+    : thread.draftSavedAt
+      ? `마지막 임시저장 ${thread.draftSavedAt}`
+      : thread.officialTemplateApplied
+        ? '공식 템플릿 적용됨'
+        : thread.aiDraftGenerated
+          ? 'AI 초안 적용됨'
           : hasDraft
-            ? '임시저장됨'
+            ? '작성 중'
             : '작성 중인 답변 없음';
   const handleAssistAction = () => {
     if (isOfficialTemplateAvailable) {
@@ -3275,7 +3276,7 @@ function ReplyComposerPage({
                       openGuidePostFromMessages(
                         thread.id,
                         'reply',
-                        'guide-reply-reference-example',
+                        replyReferenceGuidePostId,
                       );
                     }}
                     type="button"

@@ -2379,6 +2379,7 @@ ol {
   --app-content-right: 56px;
   --app-page-header-height: 36px;
   --app-page-top-offset: 88px;
+
   display: grid;
   grid-template-columns: 297px minmax(0, 1fr);
   min-height: 100vh;

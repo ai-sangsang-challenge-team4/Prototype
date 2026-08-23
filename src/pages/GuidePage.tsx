@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState, type SVGProps } from 'react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { SearchIcon } from '../components/layout/icons';
 import { Button, EmptyState, TextField } from '../components/ui';
+import {
+  emergencyOfficialProcedurePostId,
+  replyReferenceGuidePostId,
+} from '../guidePostIds';
 import './GuidePage.css';
 
 type GuideCategory = '공지' | '긴급' | '절차' | '답변' | '기록' | '공유';
@@ -43,10 +47,6 @@ const noticePosts: GuidePost[] = [
     comments: 1,
   },
 ];
-
-const replyReferenceGuidePostId = 'guide-reply-reference-example';
-const emergencyOfficialProcedurePostId =
-  'guide-emergency-official-procedure';
 
 const guidePosts: GuidePost[] = [
   {
@@ -669,7 +669,9 @@ export function GuidePage() {
     }
 
     return noticePosts.filter((post) =>
-      `${post.category} ${post.title}`.toLowerCase().includes(normalizedQuery),
+      `${post.category} ${post.title} ${getGuidePostContent(post).body.join(' ')}`
+        .toLowerCase()
+        .includes(normalizedQuery),
     );
   }, [normalizedQuery]);
   const filteredGuidePosts = useMemo(() => {
@@ -678,7 +680,9 @@ export function GuidePage() {
     }
 
     return guidePosts.filter((post) =>
-      `${post.category} ${post.title}`.toLowerCase().includes(normalizedQuery),
+      `${post.category} ${post.title} ${getGuidePostContent(post).body.join(' ')}`
+        .toLowerCase()
+        .includes(normalizedQuery),
     );
   }, [normalizedQuery]);
   const totalPages = Math.max(1, Math.ceil(filteredGuidePosts.length / pageSize));
@@ -807,11 +811,11 @@ export function GuidePage() {
             </section>
 
             <section className="guide-board" aria-label="대응 가이드 게시글 목록">
-              <div className="guide-board-head" role="row">
-                <span role="columnheader">번호</span>
-                <span role="columnheader">제목</span>
-                <span role="columnheader">등록일</span>
-                <span role="columnheader">조회</span>
+              <div className="guide-board-head" aria-hidden="true">
+                <span>번호</span>
+                <span>제목</span>
+                <span>등록일</span>
+                <span>조회</span>
               </div>
 
               {hasRows ? (
@@ -824,10 +828,10 @@ export function GuidePage() {
                       post={post}
                     />
                   ))}
-                  {visibleGuidePosts.map((post, index) => (
+                  {visibleGuidePosts.map((post) => (
                     <GuidePostRow
                       indexLabel={String(
-                        guidePosts.length - (pageStartIndex + index),
+                        guidePosts.length - guidePosts.indexOf(post),
                       )}
                       key={post.id}
                       onSelect={handleSelectPost}
