@@ -829,7 +829,7 @@
 }
 
 .board-conversation.is-summary-only .board-answer-box {
-  margin-top: clamp(28px, 5vw, 80px);
+  margin-top: auto;
 }
 
 .board-answer-box.is-locked {
