@@ -10,6 +10,18 @@ type AppLayoutProps = {
   title: string;
 };
 
+function getSidebarActiveItem(activePath: RoutePath) {
+  if (activePath === '/guide') {
+    return 'guide';
+  }
+
+  if (activePath === '/admin') {
+    return 'share';
+  }
+
+  return 'messages';
+}
+
 export function AppLayout({
   activePath,
   children,
@@ -23,9 +35,10 @@ export function AppLayout({
       className={`app-layout${isSidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}
     >
       <Sidebar
-        activePath={activePath}
-        isCollapsed={isSidebarCollapsed}
-        onToggle={() => setIsSidebarCollapsed((current) => !current)}
+        activeItem={getSidebarActiveItem(activePath)}
+        defaultCollapsed={isSidebarCollapsed}
+        messageCount={2}
+        onCollapsedChange={setIsSidebarCollapsed}
       />
       <div className="layout-body">
         <div className="content-shell">

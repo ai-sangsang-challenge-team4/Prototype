@@ -54,13 +54,10 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   const handleToggleCollapsed = () => {
-    setIsCollapsed((currentValue) => {
-      const nextValue = !currentValue;
+    const nextValue = !isCollapsed;
 
-      onCollapsedChange?.(nextValue);
-
-      return nextValue;
-    });
+    setIsCollapsed(nextValue);
+    onCollapsedChange?.(nextValue);
   };
 
   return (
