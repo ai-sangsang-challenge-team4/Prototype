@@ -1,9 +1,13 @@
+import { useMemo, useState } from 'react';
+import { AlertIcon, SearchIcon, StarIcon } from '../components/layout/icons';
 import {
-  AlertIcon,
-  ChevronDownIcon,
-  SearchIcon,
-  StarIcon,
-} from '../components/layout/icons';
+  Dropdown,
+  EmptyState,
+  StatusChip,
+  Tabs,
+  TextField,
+  type StatusChipStatus,
+} from '../components/ui';
 
 type MessageStatus = 'pending' | 'attention' | 'complete';
 
@@ -18,6 +22,8 @@ type MessageItem = {
 };
 
 const tabs = ['전체 메시지', '별표 메시지', '임시저장 답변'];
+type MessageTab = 'all' | 'starred' | 'drafts';
+type FilterValue = 'all' | MessageStatus;
 
 const messages: MessageItem[] = [
   {
@@ -55,6 +61,19 @@ const statusLabel: Record<MessageStatus, string> = {
   complete: '상담 완료',
 };
 
+const statusChipStatus: Record<MessageStatus, StatusChipStatus> = {
+  pending: 'pending',
+  attention: 'danger',
+  complete: 'complete',
+};
+
+const filterOptions: { label: string; value: FilterValue }[] = [
+  { label: '전체 상담', value: 'all' },
+  { label: '답변 전', value: 'pending' },
+  { label: '주의 필요', value: 'attention' },
+  { label: '상담 완료', value: 'complete' },
+];
+
 function MessageRow({ message }: { message: MessageItem }) {
   return (
     <article className="message-row">
@@ -84,53 +103,180 @@ function MessageRow({ message }: { message: MessageItem }) {
       </div>
 
       <div className="message-meta">
-        <span className={`message-status status-${message.status}`}>
-          {statusLabel[message.status]}
-        </span>
+        <StatusChip
+          label={statusLabel[message.status]}
+          status={statusChipStatus[message.status]}
+        />
         <time>{message.date}</time>
       </div>
     </article>
   );
 }
 
+type MessageResultsProps = {
+  emptyDescription: string;
+  emptyTitle: string;
+  messages: MessageItem[];
+};
+
+function MessageResults({
+  emptyDescription,
+  emptyTitle,
+  messages,
+}: MessageResultsProps) {
+  if (messages.length === 0) {
+    return (
+      <EmptyState
+        className="message-list-empty"
+        description={emptyDescription}
+        title={emptyTitle}
+      />
+    );
+  }
+
+  return (
+    <section className="message-list" aria-label="받은 메시지 목록">
+      {messages.map((message) => (
+        <MessageRow
+          key={`${message.parentName}-${message.title}`}
+          message={message}
+        />
+      ))}
+    </section>
+  );
+}
+
+type MessageWorkspaceProps = {
+  activeFilter: FilterValue;
+  emptyDescription: string;
+  emptyTitle: string;
+  messages: MessageItem[];
+  onFilterChange: (value: FilterValue) => void;
+  onQueryChange: (value: string) => void;
+  query: string;
+};
+
+function MessageWorkspace({
+  activeFilter,
+  emptyDescription,
+  emptyTitle,
+  messages,
+  onFilterChange,
+  onQueryChange,
+  query,
+}: MessageWorkspaceProps) {
+  return (
+    <>
+      <div className="message-toolbar">
+        <Dropdown
+          ariaLabel="상담 상태 필터"
+          className="message-filter-select"
+          menuLabel="상담 상태"
+          onValueChange={(nextValue) => onFilterChange(nextValue as FilterValue)}
+          options={filterOptions}
+          value={activeFilter}
+        />
+
+        <TextField
+          aria-label="메시지 검색"
+          containerClassName="message-search-field"
+          leadingIcon={<SearchIcon />}
+          onChange={(event) => onQueryChange(event.currentTarget.value)}
+          placeholder="이름 또는 메시지 내용으로 검색"
+          type="search"
+          value={query}
+        />
+      </div>
+
+      <MessageResults
+        emptyDescription={emptyDescription}
+        emptyTitle={emptyTitle}
+        messages={messages}
+      />
+    </>
+  );
+}
+
 export function MessagesPage() {
+  const [activeFilter, setActiveFilter] = useState<FilterValue>('all');
+  const [activeTab, setActiveTab] = useState<MessageTab>('all');
+  const [query, setQuery] = useState('');
+
+  const filteredMessages = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return messages.filter((message) => {
+      const matchesFilter =
+        activeFilter === 'all' || message.status === activeFilter;
+      const searchableText = [
+        message.parentName,
+        message.className,
+        message.title,
+        message.description,
+      ]
+        .join(' ')
+        .toLowerCase();
+      const matchesQuery =
+        normalizedQuery.length === 0 ||
+        searchableText.includes(normalizedQuery);
+
+      return matchesFilter && matchesQuery;
+    });
+  }, [activeFilter, query]);
+
+  const starredMessages = filteredMessages.filter((message) => message.starred);
+  const tabItems = [
+    {
+      value: 'all',
+      label: tabs[0],
+      content: (
+        <MessageWorkspace
+          activeFilter={activeFilter}
+          emptyDescription="검색어 또는 필터 조건을 바꾸면 다른 메시지를 볼 수 있습니다."
+          emptyTitle="조건에 맞는 메시지가 없습니다"
+          messages={filteredMessages}
+          onFilterChange={setActiveFilter}
+          onQueryChange={setQuery}
+          query={query}
+        />
+      ),
+    },
+    {
+      value: 'starred',
+      label: tabs[1],
+      content: (
+        <MessageWorkspace
+          activeFilter={activeFilter}
+          emptyDescription="중요한 상담 메시지에 별표를 표시하면 이곳에 모입니다."
+          emptyTitle="별표 메시지가 없습니다"
+          messages={starredMessages}
+          onFilterChange={setActiveFilter}
+          onQueryChange={setQuery}
+          query={query}
+        />
+      ),
+    },
+    {
+      value: 'drafts',
+      label: tabs[2],
+      content: (
+        <EmptyState
+          className="message-list-empty"
+          description="작성 중 저장한 답변 초안이 생기면 이곳에서 이어서 작성할 수 있습니다."
+          title="임시저장 답변이 없습니다"
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="messages-page">
-      <div className="tab-list" role="tablist" aria-label="메시지 분류">
-        {tabs.map((tab, index) => (
-          <button
-            aria-selected={index === 0}
-            className={`tab-button${index === 0 ? ' is-active' : ''}`}
-            key={tab}
-            role="tab"
-            type="button"
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      <div className="message-toolbar">
-        <button className="filter-button" type="button">
-          <span>전체 상담</span>
-          <ChevronDownIcon />
-        </button>
-
-        <label className="search-field">
-          <span className="sr-only">메시지 검색</span>
-          <input placeholder="이름 또는 메시지 내용으로 검색" type="search" />
-          <SearchIcon />
-        </label>
-      </div>
-
-      <section className="message-list" aria-label="받은 메시지 목록">
-        {messages.map((message) => (
-          <MessageRow
-            key={`${message.parentName}-${message.title}`}
-            message={message}
-          />
-        ))}
-      </section>
+      <Tabs
+        ariaLabel="메시지 분류"
+        items={tabItems}
+        onValueChange={(nextValue) => setActiveTab(nextValue as MessageTab)}
+        value={activeTab}
+      />
     </div>
   );
 }

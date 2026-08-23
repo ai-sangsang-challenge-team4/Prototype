@@ -1,3 +1,5 @@
+import { Accordion } from '../components/ui';
+
 const settings = [
   {
     title: '프로필',
@@ -16,14 +18,14 @@ const settings = [
 export function SettingsPage() {
   return (
     <section className="page-section" aria-label="설정 항목">
-      <div className="overview-grid">
-        {settings.map((item) => (
-          <article className="info-panel" key={item.title}>
-            <h2>{item.title}</h2>
-            <p>{item.description}</p>
-          </article>
-        ))}
-      </div>
+      <Accordion
+        defaultValue="profile"
+        items={settings.map((item) => ({
+          id: item.title === '프로필' ? 'profile' : item.title,
+          title: item.title,
+          content: <p>{item.description}</p>,
+        }))}
+      />
     </section>
   );
 }

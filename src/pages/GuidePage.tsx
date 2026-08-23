@@ -1,3 +1,5 @@
+import { Badge, type BadgeVariant } from '../components/ui';
+
 const guideItems = [
   {
     title: '위험 메시지 대응',
@@ -16,13 +18,24 @@ const guideItems = [
   },
 ];
 
+const guideBadgeVariant: Record<string, BadgeVariant> = {
+  긴급: 'critical',
+  일반: 'brand',
+  검토: 'warning',
+};
+
 export function GuidePage() {
   return (
     <section className="page-section" aria-label="대응 가이드 목록">
       <div className="overview-grid">
         {guideItems.map((item) => (
           <article className="info-panel" key={item.title}>
-            <span className="panel-badge">{item.badge}</span>
+            <Badge
+              size="sm"
+              variant={guideBadgeVariant[item.badge] ?? 'neutral'}
+            >
+              {item.badge}
+            </Badge>
             <h2>{item.title}</h2>
             <p>{item.description}</p>
           </article>
