@@ -11,8 +11,8 @@
   }
 
   .board-thread-button {
-    grid-template-columns: minmax(240px, 260px) minmax(240px, 1fr) 94px 142px;
-    gap: 18px;
+    grid-template-columns: minmax(228px, 248px) minmax(240px, 1fr) 94px 142px;
+    gap: 14px;
   }
 }
 
@@ -99,9 +99,46 @@
   .board-original-viewer-header,
   .board-reply-compose-actions,
   .board-reply-compose-actions > div,
+  .board-reply-context-heading,
+  .board-reply-compose-header,
+  .board-reply-bottom-actions,
+  .board-composer-action-group,
   .board-risk-lock-review {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .board-reply-check-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .board-reply-check-toggle {
+    width: 100%;
+  }
+
+  .board-reply-check-content {
+    grid-template-columns: 1fr;
+    row-gap: 22px;
+  }
+
+  .board-reply-check-content article {
+    grid-row: auto;
+    grid-column: 1;
+    min-height: auto;
+    padding: 0 0 22px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .board-reply-check-content::before,
+  .board-reply-check-content::after {
+    display: none;
+  }
+
+  .board-reply-check-content article:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
   }
 
   .board-risk-guide-copy {
@@ -157,30 +194,9 @@
     width: 100%;
   }
 
-  .board-draft-modal {
-    width: min(400px, calc(100vw - 32px));
-  }
-
-  .board-draft-modal-action {
-    width: 100%;
-  }
-
-  .board-original-confirm-overlay {
-    padding: 16px;
-  }
-
-  .board-original-confirm-modal {
-    gap: 36px;
-  }
-
-  .board-original-confirm-copy {
-    font-size: 20px;
-    line-height: 32px;
-  }
-
-  .board-original-confirm-action {
-    padding: 13px 12px;
-    font-size: 18px;
+  .board-confirm-modal-content {
+    padding-right: 28px;
+    padding-left: 28px;
   }
 
   .board-detail-heading,
@@ -238,9 +254,11 @@
 
   .board-risk-guide,
   .board-risk-evidence-panel,
+  .board-risk-workflow-panel,
   .board-original-viewer-panel,
   .board-activity-panel,
   .board-student-safety-card,
+  .board-reply-check-panel,
   .board-reply-context-panel,
   .board-reply-helper-panel,
   .board-reply-compose-panel,
@@ -403,14 +421,47 @@
 
   .board-risk-guide-button,
   .board-risk-section-header .board-outline-button,
-  .board-original-viewer-close,
   .board-original-risk-toggle,
   .board-student-safety-row .board-risk-action-button,
   .board-risk-review-submit,
   .board-risk-recheck-button,
   .board-reply-compose-button,
   .board-reply-compose-actions button,
-  .board-reply-send-button {
+  .board-reply-send-button,
+  .board-reference-button,
+  .board-composer-action-button {
     width: 100%;
+  }
+
+  .board-reply-check-alert {
+    align-items: flex-start;
+  }
+
+  .board-reply-check-alert p {
+    font-size: 18px;
+    line-height: 28px;
+  }
+
+  .board-reply-check-content {
+    padding: 20px;
+  }
+
+  .board-reply-compose-panel--ai textarea {
+    min-height: 260px;
+  }
+
+  .board-reply-bottom-actions {
+    padding-top: 2px;
+  }
+
+  .board-composer-action-group {
+    gap: 8px;
+  }
+
+  .board-composer-action-button,
+  .board-composer-action-button--primary {
+    height: 42px;
+    font-size: 14px;
+    line-height: 20px;
   }
 }
