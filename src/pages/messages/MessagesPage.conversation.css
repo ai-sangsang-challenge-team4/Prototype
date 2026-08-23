@@ -1,6 +1,7 @@
 .board-conversation {
   --board-conversation-x-padding: 51px;
   --board-chat-edge-offset: 36px;
+
   display: flex;
   min-height: clamp(640px, calc(100vh - 260px), 1126px);
   flex-direction: column;
@@ -55,6 +56,8 @@
 }
 
 .board-moderation-card {
+  --board-moderation-title-text-offset: 30px;
+
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -84,6 +87,7 @@
 
 .board-moderation-card p {
   margin: 0;
+  padding-left: var(--board-moderation-title-text-offset);
   color: var(--color-text-secondary);
   font-size: 16px;
   line-height: 20px;
@@ -219,7 +223,7 @@
   padding: 28px 33px;
   border-radius: 0;
   background: var(--color-bg-surface);
-  box-shadow: 0 0 10px rgb(0 0 0 / 10%);
+  box-shadow: var(--shadow-sm);
 }
 
 .board-conversation.is-summary-only .board-answer-box {
@@ -331,6 +335,7 @@
 
 .board-answer-actions--cta {
   align-items: flex-end;
+  justify-content: flex-end;
 }
 
 .board-answer-actions span {

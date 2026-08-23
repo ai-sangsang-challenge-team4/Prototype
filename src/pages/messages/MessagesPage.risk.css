@@ -6,6 +6,7 @@
 .board-risk-guide {
   --board-risk-guide-accent: var(--color-primary);
   --board-risk-guide-bg: var(--color-bg-canvas);
+
   padding: 32px;
   border-radius: 12px;
   background: var(--board-risk-guide-bg);
@@ -315,6 +316,9 @@
 }
 
 .board-risk-factor-detail {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
   color: var(--color-text-secondary);
   font-size: 16px;
   font-weight: 400;
@@ -371,6 +375,7 @@
   --board-risk-review-current-position: var(
     --board-risk-review-selected-position
   );
+
   display: grid;
   width: 100%;
   gap: 0;
@@ -630,6 +635,15 @@
   font-weight: 600;
 }
 
+.board-risk-review-required-note {
+  width: 100%;
+  margin: -8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
 .board-risk-review-textarea-shell {
   display: flex;
   width: 100%;
@@ -664,7 +678,7 @@
 
 .board-risk-review-textarea-shell textarea::placeholder,
 .board-risk-review-textarea-shell span {
-  color: var(--color-border-default);
+  color: var(--color-text-muted);
 }
 
 .board-risk-review-textarea-shell span {
@@ -698,7 +712,7 @@
 }
 
 .board-risk-review-info span {
-  color: var(--color-border-default);
+  color: var(--color-text-muted);
   font-size: 14px;
   font-weight: 600;
   line-height: 20px;
@@ -915,48 +929,325 @@
   display: none;
 }
 
-.board-original-modal-content {
+.board-original-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
   display: grid;
-  gap: 14px;
+  place-items: center;
+  padding: 32px;
+  background: rgb(58 58 58 / 40%);
 }
 
-.board-original-notice,
-.board-original-help {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: var(--color-bg-canvas);
+.board-original-confirm-modal {
+  display: flex;
+  width: min(702px, 100%);
+  max-height: calc(100vh - 64px);
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 51px;
+  overflow: auto;
+  padding: 20px 12px 0;
+  border-radius: 12px;
+  background: #f8f8f8;
+}
+
+.board-original-confirm-close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: var(--color-border-default);
+}
+
+.board-original-confirm-close:hover {
   color: var(--color-text-secondary);
-  font-size: 14px;
+}
+
+.board-original-confirm-close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.board-original-confirm-copy {
+  align-self: stretch;
+  margin: 0;
+  color: #000000;
+  font-size: 24px;
   font-weight: 500;
-  line-height: 20px;
+  line-height: 38.4px;
+  text-align: center;
+  word-break: keep-all;
 }
 
-.board-original-help {
-  color: var(--color-text-danger);
-  background: var(--color-danger-subtle);
+.board-original-confirm-actions {
+  display: flex;
+  width: calc(100% + 24px);
+  align-self: stretch;
+  margin: 0 -12px;
+  border-top: 1px solid var(--color-border-default);
 }
 
-.board-original-message {
+.board-original-confirm-action {
+  display: flex;
+  width: 50%;
+  min-height: 59px;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 20px;
+  overflow: hidden;
+  border-top: 1px solid #f8f8f8;
+  color: var(--color-text-secondary);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 24px;
+  text-align: center;
+}
+
+.board-original-confirm-action:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+.board-original-confirm-action:last-child {
+  border-bottom-right-radius: 12px;
+}
+
+.board-original-confirm-action:hover {
+  background: #f0f0f0;
+}
+
+.board-original-confirm-action--primary {
+  color: var(--color-primary);
+}
+
+.board-original-viewer {
+  display: grid;
+  gap: 32px;
+}
+
+.board-original-viewer-info {
+  align-items: center;
+}
+
+.board-original-viewer-info p {
+  flex: 1 1 auto;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.board-original-viewer-close {
+  width: 142px;
+  flex: 0 0 auto;
+}
+
+.board-original-viewer-panel {
+  display: grid;
+  gap: 24px;
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.board-original-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.board-original-viewer-header > div {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 20px;
+}
+
+.board-original-viewer-header svg {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  color: var(--color-bg-icon);
+}
+
+.board-original-viewer-header .board-original-viewer-title-icon {
+  width: 22px;
+  height: 15px;
+}
+
+.board-original-viewer-header .board-original-risk-title-icon {
+  width: 24px;
+  height: 25px;
+}
+
+.board-original-viewer-header h2 {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 32px;
+}
+
+.board-original-viewer-message {
   margin: 0;
   white-space: pre-wrap;
-  padding: 20px;
-  border: 1px solid var(--color-border-divider);
-  border-radius: 8px;
-  color: var(--color-text-primary);
-  font-size: 17px;
-  line-height: 30px;
+  padding: 26px 38px;
+  border-radius: 12px;
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 32px;
 }
 
-.board-original-message mark {
-  padding: 2px 4px;
-  border-radius: 4px;
+.board-original-highlight {
+  display: inline;
+  width: auto;
+  min-width: 0;
+  padding: 0 3px;
+  border-radius: 2px;
+  color: inherit;
   background: #fff180;
-  color: var(--color-text-primary);
+  font: inherit;
+  line-height: 1.25;
+  text-align: left;
+  vertical-align: baseline;
 }
 
-.board-modal-close-action {
-  width: 83px;
+.board-original-highlight.is-active {
+  background: #ffe400;
+}
+
+.board-original-risk-toggle {
+  width: 155px;
+  height: 46px;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-bg-surface);
+}
+
+.board-original-risk-toggle svg {
+  width: 12px;
+  height: 8px;
+  transition: transform 160ms ease;
+}
+
+.board-original-risk-toggle svg.is-open {
+  transform: rotate(180deg);
+}
+
+.board-original-risk-list {
+  display: grid;
+  gap: 20px;
+}
+
+.board-original-risk-card {
+  display: grid;
+  gap: 20px;
+  align-items: center;
+  padding: 20px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.board-original-risk-card-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0;
+  text-align: left;
+}
+
+.board-original-risk-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.board-original-risk-card-title strong {
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 25px;
+}
+
+.board-original-risk-card-trigger > svg {
+  width: 12px;
+  height: 8px;
+  flex: 0 0 auto;
+  color: var(--color-bg-icon);
+  transition: transform 160ms ease;
+}
+
+.board-original-risk-card-trigger > svg.is-open {
+  transform: rotate(180deg);
+}
+
+.board-original-risk-evidence {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  text-align: left;
+}
+
+.board-original-risk-evidence-marker {
+  width: 10px;
+  height: 24px;
+  flex: 0 0 auto;
+  background: #ffe400;
+}
+
+.board-original-risk-evidence .board-original-highlight {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.board-original-risk-detail {
+  display: grid;
+  width: 100%;
+  gap: 20px;
+  padding-top: 20px;
+  border-top: 0.7px solid var(--color-border-default);
+}
+
+.board-original-risk-detail div {
+  display: grid;
+  gap: 0;
+}
+
+.board-original-risk-detail strong,
+.board-original-risk-detail p,
+.board-original-risk-collapsed {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.board-original-risk-detail strong {
+  font-weight: 600;
+}
+
+.board-original-risk-collapsed {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--color-bg-surface);
 }
 
 .board-emergency-procedure-modal {
@@ -978,7 +1269,7 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -1044,6 +1335,21 @@
   padding: 4px 6px;
 }
 
+.board-emergency-manual-control {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: 6px;
+}
+
+.board-emergency-manual-note {
+  max-width: 180px;
+  color: var(--color-text-disabled);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: right;
+}
+
 .board-emergency-procedure-header .board-outline-button svg {
   width: 13px;
   height: 13px;
@@ -1052,6 +1358,7 @@
 
 .board-emergency-step-list {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   justify-content: center;
   gap: 12px;
@@ -1065,6 +1372,7 @@
   display: grid;
   width: 100%;
   max-width: 280px;
+  min-width: 200px;
   min-height: 224px;
   flex: 1 1 0;
   justify-items: stretch;
@@ -1124,7 +1432,7 @@
 .board-emergency-step-icon svg {
   width: 22px;
   height: 24px;
-  color: currentColor;
+  color: currentcolor;
 }
 
 .board-emergency-step-card p {

@@ -1,5 +1,6 @@
 .board-detail {
   --board-detail-max: 1053px;
+
   display: grid;
   width: min(var(--board-detail-max), 100%);
   max-width: 100%;
@@ -319,6 +320,17 @@
   line-height: 28px;
 }
 
+.board-reply-lock-notice {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--color-bg-canvas);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
 .board-reply-compose-panel textarea {
   min-height: 220px;
   padding: 18px 20px;
@@ -330,6 +342,12 @@
   font-size: 16px;
   line-height: 24px;
   resize: vertical;
+}
+
+.board-reply-compose-panel textarea:disabled {
+  background: var(--color-bg-disabled);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
 }
 
 .board-reply-compose-panel textarea:focus {

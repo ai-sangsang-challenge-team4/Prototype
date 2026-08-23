@@ -3,6 +3,7 @@
   --board-content-max: 1188px;
   --board-content-right: 56px;
   --board-sidebar-width: 297px;
+
   display: grid;
   width: 100%;
   min-height: 1015px;
@@ -63,8 +64,8 @@
   width: min(
     var(--board-content-max),
     calc(
-      100vw - var(--board-sidebar-width) - var(--board-content-left) -
-        var(--board-content-right)
+      100vw - var(--board-sidebar-width) - var(--board-content-left)
+        - var(--board-content-right)
     )
   );
   margin-top: 61px;
