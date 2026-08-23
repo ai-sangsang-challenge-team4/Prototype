@@ -541,6 +541,10 @@ const detailTabLabel: Record<DetailTab, string> = {
 
 const detailTabs: DetailTab[] = ['conversation', 'risk', 'activity'];
 
+function isReplyLocked(thread: BoardThread) {
+  return thread.risk === 'urgent' && thread.riskReviewRequired;
+}
+
 const riskStageGuides: Record<
   SystemRiskLevel,
   {
@@ -564,8 +568,6 @@ const riskStageGuides: Record<
     lockDescription: '필요한 확인을 마친 뒤 답변을 작성할 수 있습니다.',
   },
   medium: {
-    action: 'original',
-    actionLabel: '원문 보기',
     headline: '‘주의’ 단계에서는 확인 후 답변을 진행합니다.',
     description:
       '위험 표현과 판단 이유를 먼저 확인하고 오해 가능성을 낮춘 문장으로 답변해 주세요.',
@@ -642,8 +644,22 @@ const emergencyProcedureSteps: {
   },
 ];
 
-function formatNow() {
-  return '방금 전';
+function formatNow(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    day: '2-digit',
+    hour: 'numeric',
+    hour12: true,
+    minute: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((formattedParts, part) => {
+      formattedParts[part.type] = part.value;
+      return formattedParts;
+    }, {});
+
+  return `${parts.year}.${parts.month}.${parts.day} ${parts.dayPeriod} ${parts.hour}:${parts.minute}`;
 }
 
 type OriginalHighlightSegment = {
@@ -742,6 +758,8 @@ function renderHighlightedOriginalMessage({
 
     nodes.push(
       <button
+        aria-label={`${segment.factor.name} 위험 표현 선택`}
+        aria-pressed={activeFactorId === segment.factor.id}
         className={`board-original-highlight${
           activeFactorId === segment.factor.id ? ' is-active' : ''
         }`}
@@ -1657,10 +1675,23 @@ function EmergencyProcedureModal({
             <RiskSectionIcon />
             <h2>긴급 대응 절차 (반드시 순서대로 진행)</h2>
           </div>
-          <button className="board-outline-button" type="button">
-            <span>공식 대응 매뉴얼</span>
-            <ExternalLinkIcon />
-          </button>
+          <span className="board-emergency-manual-control">
+            <button
+              aria-describedby="board-emergency-manual-unavailable"
+              className="board-outline-button"
+              disabled
+              type="button"
+            >
+              <span>공식 대응 매뉴얼</span>
+              <ExternalLinkIcon />
+            </button>
+            <span
+              className="board-emergency-manual-note"
+              id="board-emergency-manual-unavailable"
+            >
+              매뉴얼 URL이 아직 등록되지 않았습니다.
+            </span>
+          </span>
         </div>
 
         <div className="board-emergency-step-list" role="list">
@@ -1726,6 +1757,7 @@ function RiskReviewPanel({
 }: RiskReviewPanelProps) {
   const trimmedReason = reason.trim();
   const reasonInputId = `board-risk-review-reason-${threadId}`;
+  const reasonRequirementId = `${reasonInputId}-requirement`;
   const selectedLevelIndex = Math.max(
     0,
     systemRiskReviewLevels.indexOf(level),
@@ -1739,6 +1771,8 @@ function RiskReviewPanel({
   const isEmergencyDowngrade =
     referenceLevel === 'emergency' && isDownwardReview;
   const isReasonRequired = isDownwardReview;
+  const isSubmitDisabledByReason =
+    isReasonRequired && trimmedReason.length === 0;
   const reviewInfoText = isEmergencyDowngrade
     ? '긴급 단계 하향은 관리자 또는 별도 책임자의 확인 후 반영됩니다.'
     : isDownwardReview
@@ -1833,10 +1867,19 @@ function RiskReviewPanel({
       <div className="board-risk-review-reason">
         <label htmlFor={reasonInputId}>
           <span>검토 사유 </span>
-          {isReasonRequired ? <strong aria-hidden="true">*</strong> : null}
+          {isReasonRequired ? (
+            <strong>
+              <span aria-hidden="true">*</span>
+              <span className="sr-only">필수</span>
+            </strong>
+          ) : null}
         </label>
         <div className="board-risk-review-textarea-shell">
           <textarea
+            aria-describedby={
+              isReasonRequired ? reasonRequirementId : undefined
+            }
+            aria-required={isReasonRequired ? true : undefined}
             disabled={!canReview}
             id={reasonInputId}
             maxLength={300}
@@ -1850,6 +1893,14 @@ function RiskReviewPanel({
           />
           <span>{reason.length} / 300</span>
         </div>
+        {isReasonRequired ? (
+          <p
+            className="board-risk-review-required-note"
+            id={reasonRequirementId}
+          >
+            하향 검토 시 검토 사유를 입력해야 하향 반영할 수 있습니다.
+          </p>
+        ) : null}
       </div>
 
       <div className="board-risk-review-footer">
@@ -1868,10 +1919,11 @@ function RiskReviewPanel({
           <span>{reviewInfoText}</span>
         </div>
         <button
-          className="board-primary-button board-risk-review-submit"
-          disabled={
-            !canReview || (isReasonRequired && trimmedReason.length === 0)
+          aria-describedby={
+            isSubmitDisabledByReason ? reasonRequirementId : undefined
           }
+          className="board-primary-button board-risk-review-submit"
+          disabled={!canReview || isSubmitDisabledByReason}
           onClick={onSubmit}
           type="button"
         >
@@ -2208,6 +2260,7 @@ function ActivityLogPanel({ thread }: ActivityLogPanelProps) {
 }
 
 type DetailProps = {
+  initialTab?: DetailTab;
   onBack: () => void;
   onOpenReplyComposer: (threadId: string) => void;
   onOriginalViewed: (threadId: string, evidence?: string) => void;
@@ -2217,6 +2270,7 @@ type DetailProps = {
 };
 
 function ThreadDetail({
+  initialTab,
   onBack,
   onOpenReplyComposer,
   onOriginalViewed,
@@ -2225,12 +2279,12 @@ function ThreadDetail({
   thread,
 }: DetailProps) {
   const [activeDetailTab, setActiveDetailTab] =
-    useState<DetailTab>('conversation');
+    useState<DetailTab>(initialTab ?? 'conversation');
   const [originalRequest, setOriginalRequest] =
     useState<OriginalMessageRequest | null>(null);
   const [originalViewer, setOriginalViewer] =
     useState<OriginalMessageRequest | null>(null);
-  const isLocked = thread.risk === 'urgent' && thread.riskReviewRequired;
+  const isLocked = isReplyLocked(thread);
   const hasDraft = thread.draftText.trim().length > 0;
   const lockedGuide =
     riskStageGuides[
@@ -2249,10 +2303,10 @@ function ThreadDetail({
   );
 
   useEffect(() => {
-    setActiveDetailTab('conversation');
+    setActiveDetailTab(initialTab ?? 'conversation');
     setOriginalRequest(null);
     setOriginalViewer(null);
-  }, [thread.id]);
+  }, [initialTab, thread.id]);
 
   const openOriginalViewer = (evidence?: string) => {
     if (!canInspectOriginal) {
@@ -2618,6 +2672,8 @@ function ReplyComposerPage({
 }: ReplyComposerPageProps) {
   const hasDraft = thread.draftText.trim().length > 0;
   const bufferedSummaryText = getBufferedSummaryText(thread);
+  const isLocked = isReplyLocked(thread);
+  const lockNoticeId = `board-reply-lock-notice-${thread.id}`;
   const helperItems = [
     '사실 확인이 필요한 내용은 단정하지 않고 확인 예정으로 표현합니다.',
     '학생 안전이나 정서 관련 내용은 관찰 및 상담 계획과 함께 안내합니다.',
@@ -2725,7 +2781,15 @@ function ReplyComposerPage({
 
         <section className="board-reply-compose-panel">
           <label htmlFor="board-reply-composer-input">선생님 답변</label>
+          {isLocked ? (
+            <p className="board-reply-lock-notice" id={lockNoticeId}>
+              긴급 위험도 검토가 필요한 메시지는 위험 요소 탭에서 검토를
+              완료한 뒤 답변을 전송할 수 있습니다.
+            </p>
+          ) : null}
           <textarea
+            aria-describedby={isLocked ? lockNoticeId : undefined}
+            disabled={isLocked}
             id="board-reply-composer-input"
             onChange={(event) => onDraftChange(thread.id, event.target.value)}
             placeholder="학부모에게 전달할 답변을 작성하세요."
@@ -2733,7 +2797,13 @@ function ReplyComposerPage({
             value={thread.draftText}
           />
           <div className="board-reply-compose-actions">
-            <span>{hasDraft ? '임시저장됨' : '작성 중인 답변 없음'}</span>
+            <span>
+              {isLocked
+                ? '위험도 검토 필요'
+                : hasDraft
+                  ? '임시저장됨'
+                  : '작성 중인 답변 없음'}
+            </span>
             <div>
               <button
                 className="board-outline-button"
@@ -2743,9 +2813,14 @@ function ReplyComposerPage({
                 상세로 돌아가기
               </button>
               <button
+                aria-describedby={isLocked ? lockNoticeId : undefined}
                 className="board-primary-button board-reply-send-button"
-                disabled={!hasDraft}
-                onClick={() => onSubmitReply(thread.id)}
+                disabled={isLocked || !hasDraft}
+                onClick={() => {
+                  if (!isLocked) {
+                    onSubmitReply(thread.id);
+                  }
+                }}
                 type="button"
               >
                 전송
@@ -2764,6 +2839,10 @@ export function MessagesPage() {
   const [draftPromptThreadId, setDraftPromptThreadId] = useState<string | null>(
     null,
   );
+  const [initialDetailTabRequest, setInitialDetailTabRequest] = useState<{
+    tab: DetailTab;
+    threadId: string;
+  } | null>(null);
   const [query, setQuery] = useState('');
   const [replyComposerThreadId, setReplyComposerThreadId] = useState<
     string | null
@@ -2829,6 +2908,7 @@ export function MessagesPage() {
 
   const handleSelectThread = (threadId: string) => {
     const thread = threads.find((currentThread) => currentThread.id === threadId);
+    setInitialDetailTabRequest(null);
     setReplyComposerThreadId(null);
 
     if (thread?.draftText.trim()) {
@@ -2840,9 +2920,20 @@ export function MessagesPage() {
   };
 
   const handleContinueDraft = () => {
-    if (draftPromptThreadId) {
-      setSelectedThreadId(draftPromptThreadId);
-      setReplyComposerThreadId(draftPromptThreadId);
+    const thread = threads.find(
+      (currentThread) => currentThread.id === draftPromptThreadId,
+    );
+
+    if (thread) {
+      setSelectedThreadId(thread.id);
+
+      if (isReplyLocked(thread)) {
+        setInitialDetailTabRequest({ tab: 'risk', threadId: thread.id });
+        setReplyComposerThreadId(null);
+      } else {
+        setInitialDetailTabRequest(null);
+        setReplyComposerThreadId(thread.id);
+      }
     }
 
     setDraftPromptThreadId(null);
@@ -2857,7 +2948,16 @@ export function MessagesPage() {
   };
 
   const handleOpenReplyComposer = (threadId: string) => {
+    const thread = threads.find((currentThread) => currentThread.id === threadId);
+
     setSelectedThreadId(threadId);
+    if (thread && isReplyLocked(thread)) {
+      setInitialDetailTabRequest({ tab: 'risk', threadId });
+      setReplyComposerThreadId(null);
+      return;
+    }
+
+    setInitialDetailTabRequest(null);
     setReplyComposerThreadId(threadId);
   };
 
@@ -2997,6 +3097,15 @@ export function MessagesPage() {
   };
 
   const handleSubmitReply = (threadId: string) => {
+    const thread = threads.find((currentThread) => currentThread.id === threadId);
+
+    if (thread && isReplyLocked(thread)) {
+      setSelectedThreadId(threadId);
+      setInitialDetailTabRequest({ tab: 'risk', threadId });
+      setReplyComposerThreadId(null);
+      return;
+    }
+
     updateThread(threadId, (thread) => {
       const nextReply = thread.draftText.trim();
 
@@ -3025,6 +3134,7 @@ export function MessagesPage() {
         status: 'complete',
       };
     });
+    setInitialDetailTabRequest(null);
     setReplyComposerThreadId(null);
   };
 
@@ -3120,7 +3230,15 @@ export function MessagesPage() {
         />
         <main className="board-detail-page">
           <ThreadDetail
-            onBack={() => setSelectedThreadId(null)}
+            initialTab={
+              initialDetailTabRequest?.threadId === selectedThread.id
+                ? initialDetailTabRequest.tab
+                : undefined
+            }
+            onBack={() => {
+              setInitialDetailTabRequest(null);
+              setSelectedThreadId(null);
+            }}
             onOpenReplyComposer={handleOpenReplyComposer}
             onOriginalViewed={handleOriginalViewed}
             onReviewComplete={handleReviewComplete}
