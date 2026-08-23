@@ -1,26 +1,52 @@
-const steps = ['아이디어 정리', '화면 흐름 설계', '사용자 테스트'];
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { AppLayout } from './components/layout/AppLayout';
+import { AdminSharePage } from './pages/AdminSharePage';
+import { GuidePage } from './pages/GuidePage';
+import { MessagesPage } from './pages/MessagesPage';
+import { SettingsPage } from './pages/SettingsPage';
+import {
+  defaultRoute,
+  findRoute,
+  getRoutePathFromHash,
+  routeToHash,
+  type RoutePath,
+} from './routes';
+
+const pageByPath: Record<RoutePath, ComponentType> = {
+  '/messages': MessagesPage,
+  '/guide': GuidePage,
+  '/admin': AdminSharePage,
+  '/settings': SettingsPage,
+};
+
+function getInitialPath() {
+  return getRoutePathFromHash(window.location.hash);
+}
 
 export default function App() {
-  return (
-    <main className="app">
-      <section className="workspace" aria-labelledby="page-title">
-        <div className="intro">
-          <p className="eyebrow">React Prototype</p>
-          <h1 id="page-title">사용자 프로토타입</h1>
-          <p>
-            핵심 화면과 상호작용을 빠르게 검증할 수 있도록 준비된 시작점입니다.
-          </p>
-        </div>
+  const [activePath, setActivePath] = useState<RoutePath>(getInitialPath);
+  const activeRoute = useMemo(() => findRoute(activePath), [activePath]);
+  const ActivePage = pageByPath[activePath];
 
-        <div className="panel" aria-label="프로토타입 진행 단계">
-          {steps.map((step, index) => (
-            <article className="step" key={step}>
-              <span>{index + 1}</span>
-              <strong>{step}</strong>
-            </article>
-          ))}
-        </div>
-      </section>
-    </main>
+  useEffect(() => {
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', routeToHash(defaultRoute.path));
+    }
+
+    const handleHashChange = () => {
+      setActivePath(getRoutePathFromHash(window.location.hash));
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
+
+  return (
+    <AppLayout activePath={activePath} title={activeRoute.title}>
+      <ActivePage />
+    </AppLayout>
   );
 }
