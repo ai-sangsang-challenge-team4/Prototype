@@ -16,28 +16,6 @@
   }
 }
 
-@media (max-width: 1020px) {
-  .board-emergency-step-list {
-    flex-direction: column;
-    flex-wrap: nowrap;
-  }
-
-  .board-emergency-step-card {
-    width: 100%;
-    max-width: none;
-    min-width: 0;
-    min-height: auto;
-  }
-
-  .board-emergency-step-card strong {
-    min-height: auto;
-  }
-
-  .board-emergency-step-arrow {
-    transform: rotate(90deg);
-  }
-}
-
 @media (max-width: 980px) {
   .board-inbox-page,
   .board-inbox-page.is-sidebar-collapsed {
@@ -362,44 +340,6 @@
 
   .board-original-risk-detail {
     padding-left: 0;
-  }
-
-  .board-emergency-procedure-modal {
-    width: min(100%, calc(100vw - 32px));
-    min-height: auto;
-    padding: 24px 16px;
-  }
-
-  .board-emergency-procedure-modal .ui-modal-body {
-    padding-top: 28px;
-  }
-
-  .board-emergency-procedure {
-    gap: 28px;
-  }
-
-  .board-emergency-procedure-header {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .board-emergency-procedure-header h2 {
-    font-size: 20px;
-    line-height: 28px;
-  }
-
-  .board-emergency-procedure-header .board-outline-button {
-    width: 100%;
-  }
-
-  .board-emergency-manual-control {
-    width: 100%;
-    justify-items: stretch;
-  }
-
-  .board-emergency-manual-note {
-    max-width: none;
-    text-align: left;
   }
 
   .board-activity-list li {

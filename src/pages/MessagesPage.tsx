@@ -20,6 +20,10 @@ import {
   type BadgeVariant,
   type StatusChipStatus,
 } from '../components/ui';
+import {
+  emergencyOfficialProcedurePostId,
+  replyReferenceGuidePostId,
+} from '../guidePostIds';
 import defaultProfileImage from '../assets/profile.png';
 import './MessagesPage.css';
 
@@ -33,13 +37,13 @@ type ThreadTab = 'all' | 'starred' | 'drafts';
 type DetailTab = 'conversation' | 'risk' | 'activity';
 type FilterValue = 'all' | 'active' | 'complete';
 type RiskGuideAction = 'original' | 'procedure';
+type MessagesRouteView = 'detail' | 'reply';
 type RiskFactorIconKind =
   | 'burden'
   | 'default'
   | 'official'
   | 'repeat'
   | 'safety';
-type EmergencyProcedureIconKind = 'document' | 'history' | 'manual';
 
 type BufferedSummary = {
   status: SummaryStatus;
@@ -93,6 +97,7 @@ type BoardThread = {
   analysis?: ThreadAnalysis;
   className: string;
   aiDraftGenerated?: boolean;
+  draftSavedAt?: string;
   draftText: string;
   evidencePackageGenerated?: boolean;
   id: string;
@@ -118,6 +123,72 @@ type RiskReviewSubmission = {
   level: SystemRiskLevel;
   reason: string;
 };
+
+function getMessagesRouteStateFromHash(hash: string): {
+  threadId: string | null;
+  view: MessagesRouteView | null;
+} {
+  const hashPath = hash.replace(/^#/, '').split('?')[0];
+
+  if (!isMessagesHashPath(hashPath)) {
+    return { threadId: null, view: null };
+  }
+
+  const queryStartIndex = hash.indexOf('?');
+
+  if (queryStartIndex < 0) {
+    return { threadId: null, view: null };
+  }
+
+  const params = new URLSearchParams(hash.slice(queryStartIndex + 1));
+  const threadId = params.get('thread');
+
+  if (!threadId) {
+    return { threadId: null, view: null };
+  }
+
+  return {
+    threadId,
+    view: params.get('view') === 'reply' ? 'reply' : 'detail',
+  };
+}
+
+function isMessagesHashPath(hashPath: string) {
+  return !hashPath || hashPath === 'messages' || hashPath === '/messages';
+}
+
+function createMessagesThreadHash(
+  threadId: string,
+  view: MessagesRouteView,
+) {
+  const params = new URLSearchParams({ thread: threadId, view });
+
+  return `#messages?${params.toString()}`;
+}
+
+function openGuidePostFromMessages(
+  threadId: string,
+  view: MessagesRouteView,
+  postId: string,
+) {
+  window.history.replaceState(
+    null,
+    '',
+    createMessagesThreadHash(threadId, view),
+  );
+  window.location.hash = `guide?post=${postId}`;
+  window.history.replaceState(
+    {
+      ...(typeof window.history.state === 'object' &&
+      window.history.state !== null
+        ? window.history.state
+        : {}),
+      showGuideBackButton: true,
+    },
+    '',
+    window.location.href,
+  );
+}
 
 const initialThreads: BoardThread[] = [
   {
@@ -625,37 +696,6 @@ const riskStageGuides: Record<
   },
 };
 
-const emergencyProcedureSteps: {
-  description: string;
-  icon: EmergencyProcedureIconKind;
-  title: string;
-}[] = [
-  {
-    title: '증빙 즉시 보존',
-    icon: 'document',
-    description:
-      '해당 메시지와 관련 자료를 즉시 증빙 보관합니다. 삭제, 수정 없이 원본 그대로 보존해야 합니다.',
-  },
-  {
-    title: '원문 및 이력 확인',
-    icon: 'history',
-    description:
-      '메시지의 전체 내용과 발신자 정보, 이전 이력 등을 확인하여 상황을 정확히 파악합니다.',
-  },
-  {
-    title: '학교 공식 대응 절차 확인',
-    icon: 'manual',
-    description:
-      '학교 및 교육청의 공식 매뉴얼에 따라 대응 절차와 보고 체계를 확인하고 따릅니다.',
-  },
-  {
-    title: '담당 관리자/부서 연락 검토',
-    icon: 'document',
-    description:
-      '필요 시 즉시 담당 관리자 또는 관련 부서에 상황을 공유하고 후속 조치를 협의합니다.',
-  },
-];
-
 function formatNow(date = new Date()) {
   const parts = new Intl.DateTimeFormat('ko-KR', {
     day: '2-digit',
@@ -915,6 +955,25 @@ function FileSearchIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function EvidencePackageIcon() {
+  return (
+    <div data-svg-wrapper data-layer="Vector" className="Vector" aria-hidden="true">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 18 18"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M7 6.75L9 5.75L11 6.75V2H7V6.75ZM4 14V12H9V14H4ZM2 18C1.45 18 0.979167 17.8042 0.5875 17.4125C0.195833 17.0208 0 16.55 0 16V2C0 1.45 0.195833 0.979167 0.5875 0.5875C0.979167 0.195833 1.45 0 2 0H16C16.55 0 17.0208 0.195833 17.4125 0.5875C17.8042 0.979167 18 1.45 18 2V16C18 16.55 17.8042 17.0208 17.4125 17.4125C17.0208 17.8042 16.55 18 16 18H2ZM2 16H16V2H13V10L9 8L5 10V2H2V16Z"
+          fill="#FF4B6C"
+        />
+      </svg>
+    </div>
+  );
+}
+
 function OriginalViewerIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -965,6 +1024,31 @@ function RiskSectionIcon(props: SVGProps<SVGSVGElement>) {
         stroke="white"
       />
     </svg>
+  );
+}
+
+function ReplyCheckAlertIcon() {
+  return (
+    <div
+      data-svg-wrapper
+      data-layer="Vector"
+      className="board-reply-check-alert-icon Vector"
+      aria-hidden="true"
+    >
+      <svg
+        width="23"
+        height="20"
+        viewBox="0 0 23 20"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M9.9707 1.24829C10.5485 0.250693 11.9886 0.2507 12.5664 1.24829L21.832 17.2522C22.411 18.2522 21.6896 19.5041 20.5342 19.5042H2.00293C0.847474 19.5041 0.126143 18.2522 0.705078 17.2522L9.9707 1.24829ZM11.2686 14.5042C11.1111 14.5042 11.0025 14.5515 10.9092 14.6448C10.8159 14.738 10.7686 14.8467 10.7686 15.0042C10.7686 15.1616 10.8159 15.2703 10.9092 15.3635C11.0024 15.4568 11.1111 15.5042 11.2686 15.5042C11.426 15.5042 11.5347 15.4568 11.6279 15.3635C11.7212 15.2703 11.7686 15.1616 11.7686 15.0042C11.7686 14.8467 11.7212 14.738 11.6279 14.6448C11.5347 14.5515 11.426 14.5042 11.2686 14.5042ZM11.2686 8.50415C10.9924 8.50415 10.7686 8.72801 10.7686 9.00415V12.0042C10.7686 12.2803 10.9924 12.5042 11.2686 12.5042C11.5447 12.5042 11.7686 12.2803 11.7686 12.0042V9.00415C11.7686 8.72801 11.5447 8.50415 11.2686 8.50415Z"
+          fill="#FF4B6C"
+          stroke="white"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -1058,58 +1142,6 @@ function RiskFactorIcon({ factor }: { factor: RiskFactor }) {
       <rect width="25" height="25" rx="8" fill="#F8F8F8" />
       <path
         d="M12.5 4.5L4.75 18.5H20.25L12.5 4.5ZM11.75 9.75H13.25V14H11.75V9.75ZM11.75 15.25H13.25V16.75H11.75V15.25Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-function EmergencyProcedureStepIcon({
-  kind,
-}: {
-  kind: EmergencyProcedureIconKind;
-}) {
-  if (kind === 'history') {
-    return (
-      <svg
-        aria-hidden="true"
-        fill="none"
-        viewBox="0 0 50 50"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M25 50C18.6111 50 13.044 47.8819 8.29861 43.6458C3.55324 39.4097 0.833333 34.1204 0.138889 27.7778H5.83333C6.48148 32.5926 8.62269 36.5741 12.2569 39.7222C15.8912 42.8704 20.1389 44.4444 25 44.4444C30.4167 44.4444 35.0116 42.5579 38.7847 38.7847C42.5579 35.0116 44.4444 30.4167 44.4444 25C44.4444 19.5833 42.5579 14.9884 38.7847 11.2153C35.0116 7.44213 30.4167 5.55556 25 5.55556C21.8056 5.55556 18.8194 6.2963 16.0417 7.77778C13.2639 9.25926 10.9259 11.2963 9.02778 13.8889H16.6667V19.4444H0V2.77778H5.55556V9.30556C7.91667 6.34259 10.7986 4.05093 14.2014 2.43056C17.6042 0.810185 21.2037 0 25 0C28.4722 0 31.7245 0.659722 34.7569 1.97917C37.7894 3.29861 40.4282 5.08102 42.6736 7.32639C44.919 9.57176 46.7014 12.2106 48.0208 15.2431C49.3403 18.2755 50 21.5278 50 25C50 28.4722 49.3403 31.7245 48.0208 34.7569C46.7014 37.7894 44.919 40.4282 42.6736 42.6736C40.4282 44.919 37.7894 46.7014 34.7569 48.0208C31.7245 49.3403 28.4722 50 25 50ZM32.7778 36.6667L22.2222 26.1111V11.1111H27.7778V23.8889L36.6667 32.7778L32.7778 36.6667Z"
-          fill="currentColor"
-        />
-      </svg>
-    );
-  }
-
-  if (kind === 'manual') {
-    return (
-      <svg
-        aria-hidden="true"
-        fill="none"
-        viewBox="0 0 53 53"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M26.5 53L9.63636 41.8111V24.1444L0 17.6667L26.5 0L53 17.6667V41.2222H48.1818V20.9056L43.3636 24.1444V41.8111L26.5 53ZM26.5 28.5611L43.0023 17.6667L26.5 6.77222L9.99773 17.6667L26.5 28.5611ZM26.5 46.3014L38.5455 38.3514V27.2361L26.5 35.3333L14.4545 27.2361V38.3514L26.5 46.3014Z"
-          fill="currentColor"
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      viewBox="0 0 43 59"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M6.14286 59C4.45357 59 3.00744 58.4223 1.80446 57.2669C0.601488 56.1115 0 54.7225 0 53.1V5.9C0 4.2775 0.601488 2.88854 1.80446 1.73312C3.00744 0.577708 4.45357 0 6.14286 0H25.1089C25.928 0 26.7086 0.1475 27.4509 0.4425C28.1932 0.7375 28.8458 1.15542 29.4089 1.69625L41.2339 13.0537C41.797 13.5946 42.2321 14.2215 42.5393 14.9344C42.8464 15.6473 43 16.3971 43 17.1838V53.1C43 54.7225 42.3985 56.1115 41.1955 57.2669C39.9926 58.4223 38.5464 59 36.8571 59H6.14286ZM18.4286 5.9H6.14286V53.1H36.8571V23.6H27.6429C25.0833 23.6 22.9077 22.7396 21.1161 21.0187C19.3244 19.2979 18.4286 17.2083 18.4286 14.75V5.9ZM24.5714 5.9V14.75C24.5714 15.5858 24.8658 16.2865 25.4545 16.8519C26.0432 17.4173 26.7726 17.7 27.6429 17.7H36.8571V17.1838L25.1089 5.9H24.5714ZM15.3571 50.15C14.4869 50.15 13.7574 49.8673 13.1687 49.3019C12.5801 48.7365 12.2857 48.0358 12.2857 47.2C12.2857 46.3642 12.5801 45.6635 13.1687 45.0981C13.7574 44.5327 14.4869 44.25 15.3571 44.25H21.5C22.3702 44.25 23.0997 44.5327 23.6884 45.0981C24.2771 45.6635 24.5714 46.3642 24.5714 47.2C24.5714 48.0358 24.2771 48.7365 23.6884 49.3019C23.0997 49.8673 22.3702 50.15 21.5 50.15H15.3571ZM15.3571 38.35C14.4869 38.35 13.7574 38.0673 13.1687 37.5019C12.5801 36.9365 12.2857 36.2358 12.2857 35.4C12.2857 34.5642 12.5801 33.8635 13.1687 33.2981C13.7574 32.7327 14.4869 32.45 15.3571 32.45H27.6429C28.5131 32.45 29.2426 32.7327 29.8312 33.2981C30.4199 33.8635 30.7143 34.5642 30.7143 35.4C30.7143 36.2358 30.4199 36.9365 29.8312 37.5019C29.2426 38.0673 28.5131 38.35 27.6429 38.35H15.3571Z"
         fill="currentColor"
       />
     </svg>
@@ -1791,88 +1823,6 @@ function RiskFactorDetail({ factor }: RiskFactorDetailProps) {
   );
 }
 
-type EmergencyProcedureModalProps = {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-};
-
-function EmergencyProcedureModal({
-  onOpenChange,
-  open,
-}: EmergencyProcedureModalProps) {
-  return (
-    <Modal
-      className="board-emergency-procedure-modal"
-      onOpenChange={onOpenChange}
-      open={open}
-      size="lg"
-      title={<span className="sr-only">긴급 대응 절차</span>}
-    >
-      <div className="board-emergency-procedure">
-        <div className="board-emergency-procedure-header">
-          <div>
-            <RiskSectionIcon />
-            <h2>긴급 대응 절차 (반드시 순서대로 진행)</h2>
-          </div>
-          <span className="board-emergency-manual-control">
-            <button
-              aria-describedby="board-emergency-manual-unavailable"
-              className="board-outline-button"
-              disabled
-              type="button"
-            >
-              <span>공식 대응 매뉴얼</span>
-              <ExternalLinkIcon />
-            </button>
-            <span
-              className="board-emergency-manual-note"
-              id="board-emergency-manual-unavailable"
-            >
-              매뉴얼 URL이 아직 등록되지 않았습니다.
-            </span>
-          </span>
-        </div>
-
-        <div className="board-emergency-step-list" role="list">
-          {emergencyProcedureSteps.map((step, index) => (
-            <div className="board-emergency-step-group" key={step.title}>
-              <article className="board-emergency-step-card" role="listitem">
-                <div className="board-emergency-step-card-header">
-                  <span className="board-emergency-step-chip">
-                    STEP {index + 1}
-                  </span>
-                  <span className="board-emergency-step-icon">
-                    <EmergencyProcedureStepIcon kind={step.icon} />
-                  </span>
-                </div>
-                <strong>{step.title}</strong>
-                <p>{step.description}</p>
-              </article>
-              {index < emergencyProcedureSteps.length - 1 ? (
-                <span
-                  aria-hidden="true"
-                  className="board-emergency-step-arrow"
-                >
-                  <svg
-                    fill="none"
-                    viewBox="0 0 15 23"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M2.26115 23L0 20.9587L10.4777 11.5L0 2.04125L2.26115 0L15 11.5L2.26115 23Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </span>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 type RiskReviewPanelProps = {
   canReview: boolean;
   level: SystemRiskLevel;
@@ -2089,8 +2039,6 @@ function RiskAnalysisPanel({
   thread,
 }: RiskAnalysisPanelProps) {
   const [isProcedureOpen, setIsProcedureOpen] = useState(false);
-  const [isEmergencyProcedureModalOpen, setIsEmergencyProcedureModalOpen] =
-    useState(false);
   const analysis = thread.analysis;
   const initialReviewLevel =
     analysis?.teacherReviewedRiskLevel ?? analysis?.systemRiskLevel ?? 'low';
@@ -2152,11 +2100,13 @@ function RiskAnalysisPanel({
   const canShowStudentSafetyCard = analysis.studentSafetySignal !== 'NONE';
   const canShowEvidencePackage =
     effectiveRiskLevel === 'high' || effectiveRiskLevel === 'emergency';
-  const canShowOfficialTemplates =
-    effectiveRiskLevel === 'high' && Boolean(thread.officialTemplates?.length);
   const handleGuideAction = () => {
     if (isEmergencyGuide) {
-      setIsEmergencyProcedureModalOpen(true);
+      openGuidePostFromMessages(
+        thread.id,
+        'detail',
+        emergencyOfficialProcedurePostId,
+      );
       return;
     }
 
@@ -2207,7 +2157,6 @@ function RiskAnalysisPanel({
                   ? isProcedureOpen
                   : undefined
               }
-              aria-haspopup={isEmergencyGuide ? 'dialog' : undefined}
               type="button"
             >
               <span>{currentGuide.actionLabel}</span>
@@ -2276,50 +2225,6 @@ function RiskAnalysisPanel({
         )}
       </section>
 
-      {canShowEvidencePackage ? (
-        <section className="board-risk-workflow-panel">
-          <div className="board-risk-section-header">
-            <div>
-              <FileSearchIcon aria-hidden="true" />
-              <h2 className="board-risk-section-title">증빙 패키지</h2>
-            </div>
-            <button
-              className="board-outline-button board-risk-action-button"
-              disabled={!analysis.packageAvailable || thread.evidencePackageGenerated}
-              onClick={() => onEvidencePackageCreate(thread.id)}
-              type="button"
-            >
-              <span>
-                {thread.evidencePackageGenerated
-                  ? '증빙 패키지 생성됨'
-                  : '증빙 패키지 생성'}
-              </span>
-              <ExternalLinkIcon />
-            </button>
-          </div>
-          <p>
-            완충 요약, 원문, 위험 요소, 판단 근거, 처리 기록을 하나의 확인
-            묶음으로 보존합니다.
-          </p>
-        </section>
-      ) : null}
-
-      {canShowOfficialTemplates ? (
-        <section className="board-risk-workflow-panel">
-          <div className="board-risk-section-header">
-            <div>
-              <WritingGuideIcon aria-hidden="true" />
-              <h2 className="board-risk-section-title">승인된 공식 응답 템플릿</h2>
-            </div>
-          </div>
-          <ul className="board-risk-template-list">
-            {thread.officialTemplates?.map((template) => (
-              <li key={template}>{template}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       {canShowReviewPanel ? (
         <RiskReviewPanel
           canReview={analysis.canReviewRisk}
@@ -2369,6 +2274,34 @@ function RiskAnalysisPanel({
         </section>
       ) : null}
 
+      {canShowEvidencePackage ? (
+        <section className="board-risk-workflow-panel">
+          <div className="board-risk-section-header">
+            <div>
+              <EvidencePackageIcon />
+              <h2 className="board-risk-section-title">증빙 패키지</h2>
+            </div>
+            <button
+              className="board-outline-button board-risk-action-button"
+              disabled={!analysis.packageAvailable || thread.evidencePackageGenerated}
+              onClick={() => onEvidencePackageCreate(thread.id)}
+              type="button"
+            >
+              <span>
+                {thread.evidencePackageGenerated
+                  ? '증빙 패키지 생성됨'
+                  : '증빙 패키지 생성'}
+              </span>
+              <ExternalLinkIcon />
+            </button>
+          </div>
+          <p>
+            완충 요약, 원문, 위험 요소, 판단 근거, 처리 기록을 하나의 확인
+            묶음으로 보존합니다.
+          </p>
+        </section>
+      ) : null}
+
       {canShowStudentSafetyCard ? (
         <section className="board-student-safety-card">
           <div className="board-student-safety-content">
@@ -2399,10 +2332,6 @@ function RiskAnalysisPanel({
         </section>
       ) : null}
 
-      <EmergencyProcedureModal
-        onOpenChange={setIsEmergencyProcedureModalOpen}
-        open={isEmergencyProcedureModalOpen}
-      />
     </div>
   );
 }
@@ -3104,6 +3033,7 @@ type ReplyComposerPageProps = {
   onBack: () => void;
   onDraftChange: (threadId: string, value: string) => void;
   onDraftReset: (threadId: string) => void;
+  onDraftSave: (threadId: string) => void;
   onGenerateAiDraft: (threadId: string) => void;
   onListOpen: () => void;
   onOpenOriginalPage: (threadId: string) => void;
@@ -3116,6 +3046,7 @@ function ReplyComposerPage({
   onBack,
   onDraftChange,
   onDraftReset,
+  onDraftSave,
   onGenerateAiDraft,
   onListOpen,
   onOpenOriginalPage,
@@ -3163,6 +3094,17 @@ function ReplyComposerPage({
         : riskLevel === 'high'
           ? '위험 단계: 개별 AI 초안 대신 증빙 패키지와 승인된 공식 응답 템플릿을 사용합니다.'
           : '긴급 단계: 개별 답변 초안은 제공되지 않으며 즉시 오프라인 공식 절차에 따라 대응합니다.';
+  const draftStatusText = isLocked
+    ? '위험도 검토 필요'
+    : thread.draftSavedAt
+      ? `마지막 임시저장 ${thread.draftSavedAt}`
+      : thread.officialTemplateApplied
+        ? '공식 템플릿 적용됨'
+        : thread.aiDraftGenerated
+          ? 'AI 초안 적용됨'
+          : hasDraft
+            ? '작성 중'
+            : '작성 중인 답변 없음';
   const handleAssistAction = () => {
     if (isOfficialTemplateAvailable) {
       onApplyOfficialTemplate(thread.id);
@@ -3271,10 +3213,7 @@ function ReplyComposerPage({
         >
           <div className="board-reply-check-heading">
             <div className="board-reply-check-alert">
-              <span className="board-reply-check-alert-icon" aria-hidden="true">
-                <RiskSectionIcon />
-                <strong>!</strong>
-              </span>
+              <ReplyCheckAlertIcon />
               <p>답변 전 확인이 필요한 내용을 확인해 주세요.</p>
             </div>
             <button
@@ -3333,6 +3272,13 @@ function ReplyComposerPage({
                   </p>
                   <button
                     className="board-outline-button board-risk-action-button board-reply-check-reference-button"
+                    onClick={() => {
+                      openGuidePostFromMessages(
+                        thread.id,
+                        'reply',
+                        replyReferenceGuidePostId,
+                      );
+                    }}
                     type="button"
                   >
                     <span>자세히 보기</span>
@@ -3365,17 +3311,7 @@ function ReplyComposerPage({
         <section className="board-reply-compose-panel board-reply-compose-panel--ai">
           <div className="board-reply-compose-header">
             <label htmlFor="board-reply-composer-input">선생님 답변</label>
-            <span aria-live="polite">
-                {isLocked
-                  ? '위험도 검토 필요'
-                  : thread.officialTemplateApplied
-                    ? '공식 템플릿 적용됨'
-                  : thread.aiDraftGenerated
-                    ? 'AI 초안 적용됨'
-                  : hasDraft
-                    ? '임시저장됨'
-                    : '작성 중인 답변 없음'}
-            </span>
+            <span aria-live="polite">{draftStatusText}</span>
           </div>
           {isLocked ? (
             <p className="board-reply-lock-notice" id={lockNoticeId}>
@@ -3402,7 +3338,7 @@ function ReplyComposerPage({
             <button
               className="board-composer-action-button"
               disabled={isLocked || !hasDraft}
-              onClick={() => onDraftChange(thread.id, thread.draftText)}
+              onClick={() => onDraftSave(thread.id)}
               type="button"
             >
               <SaveIcon />
@@ -3469,6 +3405,9 @@ function ReplyComposerPage({
 }
 
 export function MessagesPage() {
+  const initialMessagesRouteState = getMessagesRouteStateFromHash(
+    typeof window === 'undefined' ? '' : window.location.hash,
+  );
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all');
   const [activeTab, setActiveTab] = useState<ThreadTab>('all');
   const [draftPromptThreadId, setDraftPromptThreadId] = useState<string | null>(
@@ -3486,13 +3425,44 @@ export function MessagesPage() {
   const [query, setQuery] = useState('');
   const [replyComposerThreadId, setReplyComposerThreadId] = useState<
     string | null
-  >(null);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  >(
+    initialMessagesRouteState.view === 'reply'
+      ? initialMessagesRouteState.threadId
+      : null,
+  );
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
+    initialMessagesRouteState.threadId,
+  );
   const [sendCompleteThreadId, setSendCompleteThreadId] = useState<string | null>(
     null,
   );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [threads, setThreads] = useState(initialThreads);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hashPath = window.location.hash.replace(/^#/, '').split('?')[0];
+
+      if (!isMessagesHashPath(hashPath)) {
+        return;
+      }
+
+      const routeState = getMessagesRouteStateFromHash(window.location.hash);
+
+      setDraftPromptThreadId(null);
+      setInitialDetailTabRequest(null);
+      setInitialOriginalViewerRequest(null);
+      setReplyComposerThreadId(
+        routeState.view === 'reply' ? routeState.threadId : null,
+      );
+      setSelectedThreadId(routeState.threadId);
+      setSendCompleteThreadId(null);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const filteredThreads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -3590,6 +3560,7 @@ export function MessagesPage() {
     updateThread(threadId, (thread) => ({
       ...thread,
       aiDraftGenerated: value.trim() ? thread.aiDraftGenerated : false,
+      draftSavedAt: value.trim() ? thread.draftSavedAt : undefined,
       officialTemplateApplied: value.trim()
         ? thread.officialTemplateApplied
         : false,
@@ -3602,12 +3573,46 @@ export function MessagesPage() {
     updateThread(threadId, (thread) => ({
       ...thread,
       aiDraftGenerated: false,
+      draftSavedAt: undefined,
       draftText: '',
       officialTemplateApplied: false,
       status: thread.replies.some((reply) => reply.authorRole === 'teacher')
         ? thread.status
         : 'before',
     }));
+  };
+
+  const handleDraftSave = (threadId: string) => {
+    updateThread(threadId, (thread) => {
+      if (isReplyLocked(thread) || !thread.draftText.trim()) {
+        return thread;
+      }
+
+      const savedAt = formatNow();
+
+      return {
+        ...thread,
+        status: thread.status === 'complete' ? 'inProgress' : thread.status,
+        draftSavedAt: savedAt,
+        analysis: thread.analysis
+          ? {
+              ...thread.analysis,
+              activityLogs: [
+                ...thread.analysis.activityLogs,
+                {
+                  id: `${thread.id}-draft-save-${
+                    thread.analysis.activityLogs.length + 1
+                  }`,
+                  time: savedAt,
+                  actor: '조예인 선생님',
+                  action: '답변 초안 임시저장',
+                  detail: `작성 중인 답변 초안을 임시저장했습니다. 저장 시각: ${savedAt}.`,
+                },
+              ],
+            }
+          : thread.analysis,
+      };
+    });
   };
 
   const handleGenerateAiDraft = (threadId: string) => {
@@ -3621,6 +3626,7 @@ export function MessagesPage() {
       return {
         ...thread,
         aiDraftGenerated: true,
+        draftSavedAt: undefined,
         draftText: generatedDraft,
         officialTemplateApplied: false,
         status: thread.status === 'complete' ? 'inProgress' : thread.status,
@@ -3657,6 +3663,7 @@ export function MessagesPage() {
       return {
         ...thread,
         aiDraftGenerated: false,
+        draftSavedAt: undefined,
         draftText: templateDraft,
         officialTemplateApplied: true,
         status: thread.status === 'complete' ? 'inProgress' : thread.status,
@@ -3902,6 +3909,7 @@ export function MessagesPage() {
       return {
         ...thread,
         aiDraftGenerated: false,
+        draftSavedAt: undefined,
         draftText: '',
         officialTemplateApplied: false,
         latestAt: new Date().toISOString(),
@@ -4007,6 +4015,7 @@ export function MessagesPage() {
             }}
             onDraftChange={handleDraftChange}
             onDraftReset={handleDraftReset}
+            onDraftSave={handleDraftSave}
             onGenerateAiDraft={handleGenerateAiDraft}
             onListOpen={() => {
               setInitialDetailTabRequest(null);

@@ -421,29 +421,17 @@
 }
 
 .board-reply-check-alert-icon {
-  position: relative;
-  display: grid;
-  width: 25px;
-  height: 22px;
+  display: inline-flex;
+  width: 23px;
+  height: 20px;
   flex: 0 0 auto;
-  place-items: center;
-  color: #ff849a;
+  align-items: center;
+  justify-content: center;
 }
 
 .board-reply-check-alert-icon svg {
-  width: 25px;
-  height: 22px;
-}
-
-.board-reply-check-alert-icon strong {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  color: var(--color-text-inverse);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 17px;
-  transform: translateX(-50%);
+  width: 23px;
+  height: 20px;
 }
 
 .board-reply-check-alert p {
@@ -474,7 +462,6 @@
   width: 13px;
   height: 7px;
   color: #333f49;
-  transition: transform 160ms ease;
 }
 
 .board-reply-check-toggle svg.is-open {
