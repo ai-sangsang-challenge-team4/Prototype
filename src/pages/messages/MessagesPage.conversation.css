@@ -19,24 +19,25 @@
 
 .board-date-chip {
   display: inline-flex;
-  width: 284px;
-  height: 45px;
+  width: auto;
+  min-width: 232px;
+  height: 36px;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   margin: 0 auto;
-  padding: 0 24px;
-  border-radius: 20px;
+  padding: 0 18px;
+  border-radius: 18px;
   background: #f8f8f8;
   color: #444444;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 400;
-  line-height: 24px;
+  line-height: 20px;
 }
 
 .board-date-chip svg {
-  width: 18px;
-  height: 20px;
+  width: 14px;
+  height: 16px;
   flex: 0 0 auto;
   color: #333f49;
 }
@@ -336,11 +337,6 @@
 .board-answer-actions--cta {
   align-items: flex-end;
   justify-content: flex-end;
-}
-
-.board-answer-actions span {
-  color: var(--color-text-secondary);
-  font-size: 14px;
 }
 
 .board-reply-compose-button {

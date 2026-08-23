@@ -164,9 +164,9 @@
   display: grid;
   min-width: 0;
   min-height: 112px;
-  grid-template-columns: minmax(250px, 280px) minmax(320px, 1fr) 94px 164px;
+  grid-template-columns: minmax(238px, 264px) minmax(320px, 1fr) 94px 164px;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   padding: 0 16px 0 0;
   border-radius: 8px;
   color: inherit;
@@ -213,7 +213,7 @@
 }
 
 .board-parent-copy span,
-.board-thread-copy span,
+.board-thread-copy > span:not(.board-thread-title-row),
 .board-card-profile small,
 .board-card-topic span {
   overflow: hidden;
@@ -223,6 +223,50 @@
   line-height: 24px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.board-thread-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.board-thread-title-row > strong {
+  min-width: 0;
+}
+
+.board-thread-title-dot {
+  width: 2px;
+  height: 2px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #484848;
+}
+
+.board-thread-attention-alert {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 6px;
+  color: #fd2d27;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 19px;
+  white-space: nowrap;
+}
+
+.board-thread-attention-icon {
+  display: grid;
+  width: 23px;
+  height: 20px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.board-thread-attention-icon svg {
+  width: 23px;
+  height: 20px;
 }
 
 .board-thread-status {
