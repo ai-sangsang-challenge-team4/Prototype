@@ -205,6 +205,18 @@
   color: var(--color-pink-3);
 }
 
+.board-risk-section-header [data-svg-wrapper].Vector {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.board-risk-section-header [data-svg-wrapper].Vector svg {
+  width: 18px;
+  height: 18px;
+}
+
 .board-risk-factor-accordion {
   display: grid;
   gap: 16px;
@@ -224,23 +236,6 @@
   color: var(--color-text-secondary);
   font-size: 16px;
   line-height: 24px;
-}
-
-.board-risk-template-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.board-risk-template-list li {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
-  background: var(--color-bg-surface);
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 20px;
 }
 
 .board-risk-factor-accordion .ui-accordion-item {
@@ -1068,7 +1063,6 @@
 .board-original-risk-toggle svg {
   width: 12px;
   height: 8px;
-  transition: transform 160ms ease;
 }
 
 .board-original-risk-toggle svg.is-open {
@@ -1119,7 +1113,6 @@
   height: 8px;
   flex: 0 0 auto;
   color: var(--color-bg-icon);
-  transition: transform 160ms ease;
 }
 
 .board-original-risk-card-trigger > svg.is-open {
@@ -1181,213 +1174,4 @@
   padding: 20px;
   border-radius: 12px;
   background: var(--color-bg-surface);
-}
-
-.board-emergency-procedure-modal {
-  width: min(1053px, calc(100vw - 64px));
-  min-height: auto;
-  padding: 36px 24px;
-  border: 0;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-}
-
-.board-emergency-procedure-modal .ui-modal-header {
-  justify-content: flex-end;
-  padding: 0;
-}
-
-.board-emergency-procedure-modal .ui-modal-heading {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.board-emergency-procedure-modal .ui-modal-close {
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border-radius: 0;
-  color: var(--color-border-default);
-}
-
-.board-emergency-procedure-modal .ui-modal-close:hover {
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-
-.board-emergency-procedure-modal .ui-modal-close svg {
-  width: 14px;
-  height: 14px;
-}
-
-.board-emergency-procedure-modal .ui-modal-body {
-  padding: 34px 0 0;
-}
-
-.board-emergency-procedure {
-  display: grid;
-  gap: 28px;
-}
-
-.board-emergency-procedure-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.board-emergency-procedure-header > div {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 20px;
-}
-
-.board-emergency-procedure-header h2 {
-  margin: 0;
-  color: var(--color-pink-3);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 32px;
-}
-
-.board-emergency-procedure-header svg {
-  width: 25px;
-  height: 22px;
-  flex: 0 0 auto;
-  color: #ff849a;
-}
-
-.board-emergency-procedure-header .board-outline-button {
-  width: 149px;
-  flex: 0 0 auto;
-  padding: 4px 6px;
-}
-
-.board-emergency-manual-control {
-  display: grid;
-  flex: 0 0 auto;
-  justify-items: end;
-  gap: 6px;
-}
-
-.board-emergency-manual-note {
-  max-width: 180px;
-  color: var(--color-text-disabled);
-  font-size: 12px;
-  line-height: 16px;
-  text-align: right;
-}
-
-.board-emergency-procedure-header .board-outline-button svg {
-  width: 13px;
-  height: 13px;
-  color: var(--color-bg-icon);
-}
-
-.board-emergency-step-list {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  justify-content: center;
-  gap: 12px;
-}
-
-.board-emergency-step-group {
-  display: contents;
-}
-
-.board-emergency-step-card {
-  display: grid;
-  width: 100%;
-  max-width: 280px;
-  min-width: 200px;
-  min-height: 224px;
-  flex: 1 1 0;
-  justify-items: stretch;
-  align-content: start;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--color-border-divider);
-  border-radius: 12px;
-  background: var(--color-bg-surface);
-  box-shadow: var(--shadow-sm);
-  text-align: left;
-}
-
-.board-emergency-step-card-header {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.board-emergency-step-chip {
-  display: inline-grid;
-  min-width: 68px;
-  height: 28px;
-  place-items: center;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: var(--color-danger-subtle);
-  color: var(--color-danger);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 16px;
-  white-space: nowrap;
-}
-
-.board-emergency-step-card strong {
-  display: block;
-  min-height: 48px;
-  color: var(--color-text-primary);
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 24px;
-}
-
-.board-emergency-step-icon {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--color-bg-canvas);
-  color: var(--color-bg-icon);
-}
-
-.board-emergency-step-icon svg {
-  width: 22px;
-  height: 24px;
-  color: currentcolor;
-}
-
-.board-emergency-step-card p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 22px;
-  text-align: left;
-  word-break: keep-all;
-}
-
-.board-emergency-step-arrow {
-  display: grid;
-  width: 12px;
-  height: auto;
-  place-items: center;
-  align-self: center;
-  color: var(--color-border-default);
-}
-
-.board-emergency-step-arrow svg {
-  width: 10px;
-  height: 16px;
 }

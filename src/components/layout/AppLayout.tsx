@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Header } from './Header';
-import { Sidebar } from './Sidebar';
+import { Sidebar, type SidebarItem } from './Sidebar';
 import type { RoutePath } from '../../routes';
 
 type AppLayoutProps = {
@@ -10,13 +10,17 @@ type AppLayoutProps = {
   title: string;
 };
 
-function getSidebarActiveItem(activePath: RoutePath) {
+function getSidebarActiveItem(activePath: RoutePath): SidebarItem {
   if (activePath === '/guide') {
     return 'guide';
   }
 
   if (activePath === '/admin') {
     return 'share';
+  }
+
+  if (activePath === '/settings') {
+    return 'settings';
   }
 
   return 'messages';

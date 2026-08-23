@@ -10,7 +10,7 @@ import {
 } from './icons';
 import './Sidebar.css';
 
-type SidebarItem = 'messages' | 'guide' | 'share';
+export type SidebarItem = 'messages' | 'guide' | 'share' | 'settings';
 
 type SidebarProps = {
   activeItem?: SidebarItem;
@@ -33,7 +33,7 @@ const navItems = [
     label: '대응 가이드',
   },
   {
-    href: '#share',
+    href: '#admin',
     icon: SidebarShareIcon,
     key: 'share',
     label: '관리자 공유',
@@ -52,6 +52,7 @@ export function Sidebar({
   onCollapsedChange,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const isSettingsActive = activeItem === 'settings';
 
   const handleToggleCollapsed = () => {
     const nextValue = !isCollapsed;
@@ -106,8 +107,9 @@ export function Sidebar({
       <div className="sidebar-divider" aria-hidden="true" />
 
       <a
+        aria-current={isSettingsActive ? 'page' : undefined}
         aria-label="설정/도움말"
-        className="sidebar-utility-link"
+        className={`sidebar-utility-link${isSettingsActive ? ' is-active' : ''}`}
         href="#settings"
         title="설정/도움말"
       >

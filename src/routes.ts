@@ -36,7 +36,7 @@ export const routes = [...primaryRoutes, ...utilityRoutes];
 export const defaultRoute = primaryRoutes[0];
 
 export function routeToHash(path: RoutePath) {
-  return `#${path}`;
+  return `#${path.replace(/^\//, '')}`;
 }
 
 export function findRoute(path: string) {
@@ -44,7 +44,8 @@ export function findRoute(path: string) {
 }
 
 export function getRoutePathFromHash(hash: string): RoutePath {
-  const path = hash.replace(/^#/, '');
+  const hashPath = hash.replace(/^#/, '').split('?')[0];
+  const path = hashPath.startsWith('/') ? hashPath : `/${hashPath}`;
 
   return findRoute(path).path;
 }
