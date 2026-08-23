@@ -1,126 +1,134 @@
-import type { ComponentType, SVGProps } from 'react';
+import { useState } from 'react';
+import defaultProfileImage from '../../assets/profile.png';
 import {
-  CollapseIcon,
-  GuideIcon,
-  MenuIcon,
-  MessageIcon,
-  SettingsIcon,
-  UsersIcon,
+  SidebarCollapseIcon,
+  SidebarGuideIcon,
+  SidebarMenuIcon,
+  SidebarMessageIcon,
+  SidebarSettingsIcon,
+  SidebarShareIcon,
 } from './icons';
-import {
-  primaryRoutes,
-  routeToHash,
-  utilityRoutes,
-  type AppRoute,
-  type RoutePath,
-} from '../../routes';
+import './Sidebar.css';
+
+type SidebarItem = 'messages' | 'guide' | 'share';
 
 type SidebarProps = {
-  activePath: RoutePath;
-  isCollapsed: boolean;
-  onToggle: () => void;
+  activeItem?: SidebarItem;
+  defaultCollapsed?: boolean;
+  messageCount?: number;
+  onCollapsedChange?: (isCollapsed: boolean) => void;
 };
 
-type NavItem = AppRoute & {
-  badge?: number;
-  Icon: ComponentType<SVGProps<SVGSVGElement>>;
-};
-
-const primaryNavItems: NavItem[] = [
+const navItems = [
   {
-    ...primaryRoutes[0],
-    Icon: MessageIcon,
-    badge: 2,
+    href: '#messages',
+    icon: SidebarMessageIcon,
+    key: 'messages',
+    label: '메시지',
   },
   {
-    ...primaryRoutes[1],
-    Icon: GuideIcon,
+    href: '#guide',
+    icon: SidebarGuideIcon,
+    key: 'guide',
+    label: '대응 가이드',
   },
   {
-    ...primaryRoutes[2],
-    Icon: UsersIcon,
+    href: '#share',
+    icon: SidebarShareIcon,
+    key: 'share',
+    label: '관리자 공유',
   },
-];
+] satisfies {
+  href: string;
+  icon: typeof SidebarMessageIcon;
+  key: SidebarItem;
+  label: string;
+}[];
 
-const utilityNavItems: NavItem[] = [
-  {
-    ...utilityRoutes[0],
-    Icon: SettingsIcon,
-  },
-];
+export function Sidebar({
+  activeItem = 'messages',
+  defaultCollapsed = true,
+  messageCount = 0,
+  onCollapsedChange,
+}: SidebarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
-type SidebarLinkProps = {
-  activePath: RoutePath;
-  item: NavItem;
-};
+  const handleToggleCollapsed = () => {
+    setIsCollapsed((currentValue) => {
+      const nextValue = !currentValue;
 
-function SidebarLink({ activePath, item }: SidebarLinkProps) {
-  const isActive = activePath === item.path;
-  const { Icon } = item;
+      onCollapsedChange?.(nextValue);
 
-  return (
-    <a
-      aria-current={isActive ? 'page' : undefined}
-      className={`sidebar-link${isActive ? ' is-active' : ''}`}
-      href={routeToHash(item.path)}
-      title={item.label}
-    >
-      <Icon className="sidebar-link-icon" />
-      <span className="sidebar-link-label">{item.label}</span>
-      {item.badge ? <span className="sidebar-badge">{item.badge}</span> : null}
-    </a>
-  );
-}
-
-export function Sidebar({ activePath, isCollapsed, onToggle }: SidebarProps) {
-  const ToggleIcon = isCollapsed ? MenuIcon : CollapseIcon;
+      return nextValue;
+    });
+  };
 
   return (
     <aside
       className={`sidebar-shell${isCollapsed ? ' is-collapsed' : ''}`}
-      aria-label="교사용 주요 메뉴"
+      aria-label="교사 메뉴"
     >
-      <div className="sidebar-inner">
-        <a className="sidebar-brand" href={routeToHash('/messages')}>
-          <span className="sidebar-logo" aria-hidden="true">
-            TH
-          </span>
-          <span className="sidebar-brand-name">Teacher Hub</span>
-        </a>
+      <div className="sidebar-brand">
+        <span className="sidebar-logo">(로고)</span>
+        <strong>Teacher Hub</strong>
+      </div>
 
-        <button
-          aria-expanded={!isCollapsed}
-          aria-label={isCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
-          className="sidebar-collapse"
-          onClick={onToggle}
-          type="button"
-        >
-          <ToggleIcon />
-        </button>
+      <button
+        aria-label={isCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+        aria-pressed={isCollapsed}
+        className="sidebar-collapse"
+        onClick={handleToggleCollapsed}
+        type="button"
+      >
+        {isCollapsed ? <SidebarMenuIcon /> : <SidebarCollapseIcon />}
+      </button>
 
-        <nav className="sidebar-nav" aria-label="주요 화면">
-          {primaryNavItems.map((item) => (
-            <SidebarLink activePath={activePath} item={item} key={item.path} />
-          ))}
-        </nav>
+      <nav className="sidebar-nav" aria-label="주요 메뉴">
+        {navItems.map(({ href, icon: Icon, key, label }) => {
+          const isActive = activeItem === key;
 
-        <div className="sidebar-divider" />
+          return (
+            <a
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={label}
+              className={`sidebar-link${isActive ? ' is-active' : ''}`}
+              href={href}
+              key={key}
+              title={label}
+            >
+              <Icon className="sidebar-link-icon" />
+              <span className="sidebar-link-label">{label}</span>
+              {key === 'messages' && messageCount > 0 ? (
+                <span className="sidebar-badge">{messageCount}</span>
+              ) : null}
+            </a>
+          );
+        })}
+      </nav>
 
-        <nav className="sidebar-utility" aria-label="지원 메뉴">
-          {utilityNavItems.map((item) => (
-            <SidebarLink activePath={activePath} item={item} key={item.path} />
-          ))}
-        </nav>
+      <div className="sidebar-divider" aria-hidden="true" />
 
-        <a className="teacher-profile" href={routeToHash('/settings')}>
-          <span className="teacher-avatar" aria-hidden="true">
-            조
-          </span>
-          <span className="teacher-profile-text">
-            <strong>조예인 선생님</strong>
-            <span>숙명초등학교</span>
-          </span>
-        </a>
+      <a
+        aria-label="설정/도움말"
+        className="sidebar-utility-link"
+        href="#settings"
+        title="설정/도움말"
+      >
+        <SidebarSettingsIcon className="sidebar-link-icon" />
+        <span className="sidebar-link-label">설정/도움말</span>
+      </a>
+
+      <div className="sidebar-profile">
+        <img
+          alt=""
+          aria-hidden="true"
+          className="sidebar-profile-avatar"
+          src={defaultProfileImage}
+        />
+        <span>
+          <strong>조예인 선생님</strong>
+          <small>숙명초등학교</small>
+        </span>
       </div>
     </aside>
   );
