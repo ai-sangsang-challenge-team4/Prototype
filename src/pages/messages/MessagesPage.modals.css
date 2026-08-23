@@ -1,0 +1,80 @@
+.board-primary-button {
+  display: grid;
+  width: 83px;
+  height: 37px;
+  min-height: 37px;
+  place-items: center;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.board-primary-button:disabled {
+  background: var(--color-bg-canvas);
+  color: var(--color-text-muted);
+}
+
+.board-draft-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgb(58 58 58 / 40%);
+}
+
+.board-draft-modal {
+  position: relative;
+  display: grid;
+  width: 400px;
+  height: 203px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--color-bg-canvas);
+}
+
+.board-draft-modal h2 {
+  align-self: start;
+  margin: 42px 40px 0;
+  color: #000000;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 38.4px;
+  text-align: center;
+}
+
+.board-draft-modal-close {
+  position: absolute;
+  top: 24px;
+  right: 16px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: var(--color-border-default);
+}
+
+.board-draft-modal-close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.board-draft-modal-action {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  width: 400px;
+  height: 59px;
+  place-items: center;
+  border-top: 1px solid #f0f0f0;
+  color: var(--color-text-danger);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 25.6px;
+  text-align: center;
+}

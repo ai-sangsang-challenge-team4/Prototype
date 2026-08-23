@@ -1,0 +1,349 @@
+@media (max-width: 1240px) {
+  .board-list-page,
+  .board-detail-page {
+    padding-right: 24px;
+    padding-left: 48px;
+  }
+
+  .board-list-panel,
+  .board-detail {
+    width: 100%;
+  }
+
+  .board-thread-button {
+    grid-template-columns: minmax(240px, 260px) minmax(240px, 1fr) 94px 142px;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 980px) {
+  .board-inbox-page,
+  .board-inbox-page.is-sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .board-list-page,
+  .board-detail-page {
+    padding: 48px 24px 72px;
+  }
+
+  .board-list-panel {
+    margin-top: 40px;
+  }
+
+  .board-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .board-thread-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px 0;
+  }
+
+  .board-thread-button {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .board-thread-status {
+    display: flex;
+    align-items: center;
+  }
+
+  .board-thread-time {
+    text-align: left;
+  }
+
+  .board-parent-card {
+    grid-template-columns: 1fr;
+  }
+
+  .board-detail-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .board-page-nav {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .board-risk-section-header,
+  .board-risk-review-footer,
+  .board-student-safety-row,
+  .board-reply-compose-actions,
+  .board-reply-compose-actions > div,
+  .board-risk-lock-review {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .board-risk-guide-copy {
+    grid-template-columns: 25px minmax(0, 1fr) max-content;
+  }
+
+  .board-risk-guide-button {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .board-activity-list li {
+    grid-template-columns: 140px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .board-list-page,
+  .board-detail-page {
+    padding: 36px 16px 56px;
+  }
+
+  .board-tabs .ui-tabs-list {
+    height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .board-tabs .ui-tabs-trigger {
+    height: 48px;
+  }
+
+  .board-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .board-detail {
+    gap: 32px;
+  }
+
+  .board-detail-tabs {
+    height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .board-detail-tabs button {
+    height: 48px;
+    font-size: 18px;
+  }
+
+  .board-filter-select,
+  .board-search-field {
+    width: 100%;
+  }
+
+  .board-draft-modal {
+    width: min(400px, calc(100vw - 32px));
+  }
+
+  .board-draft-modal-action {
+    width: 100%;
+  }
+
+  .board-detail-heading,
+  .board-answer-box.is-locked,
+  .board-moderation-card,
+  .board-answer-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .board-answer-box.is-locked {
+    grid-template-columns: 1fr;
+  }
+
+  .board-risk-review-button {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .board-conversation {
+    --board-conversation-x-padding: 20px;
+    --board-chat-edge-offset: 0px;
+    padding: 20px;
+  }
+
+  .board-reply-row {
+    max-width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .board-moderation-row {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 0;
+  }
+
+  .board-moderation-card {
+    width: 100%;
+  }
+
+  .board-reply-parent .board-reply-row {
+    margin-left: 0;
+  }
+
+  .board-reply-teacher .board-reply-row {
+    align-items: flex-end;
+  }
+
+  .board-reply-teacher .board-reply-bubble,
+  .board-reply-parent .board-reply-bubble {
+    width: 100%;
+  }
+
+  .board-risk-guide,
+  .board-risk-evidence-panel,
+  .board-activity-panel,
+  .board-student-safety-card,
+  .board-reply-context-panel,
+  .board-reply-helper-panel,
+  .board-reply-compose-panel,
+  .board-risk-review-panel,
+  .board-risk-lock-review {
+    padding: 20px;
+  }
+
+  .board-risk-review-panel {
+    gap: 36px;
+  }
+
+  .board-risk-review-slider {
+    --board-risk-review-thumb-size: 34px;
+  }
+
+  .board-risk-review-control,
+  .board-risk-review-range,
+  .board-risk-review-range::-webkit-slider-runnable-track,
+  .board-risk-review-range::-moz-range-track {
+    height: 38px;
+  }
+
+  .board-risk-review-thumb {
+    top: 2px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .board-risk-review-range::-webkit-slider-thumb {
+    width: 34px;
+    height: 34px;
+  }
+
+  .board-risk-review-range::-moz-range-thumb {
+    width: 34px;
+    height: 34px;
+  }
+
+  .board-risk-review-textarea-shell {
+    padding: 18px 20px;
+  }
+
+  .board-risk-lock-review p,
+  .board-risk-lock-actions {
+    padding-left: 0;
+  }
+
+  .board-risk-guide-copy {
+    grid-template-columns: 25px minmax(0, 1fr);
+    column-gap: 16px;
+    font-size: 18px;
+    line-height: 28px;
+  }
+
+  .board-risk-guide-copy > strong {
+    line-height: 28px;
+  }
+
+  .board-risk-section-header h2 {
+    line-height: 28px;
+  }
+
+  .board-risk-guide-button {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    justify-self: stretch;
+    margin-top: 8px;
+  }
+
+  .board-risk-guide-copy > span,
+  .board-risk-guide-procedure {
+    grid-column: 1 / -1;
+  }
+
+  .board-emergency-procedure-modal {
+    width: min(100%, calc(100vw - 32px));
+    min-height: auto;
+    padding: 24px 16px;
+  }
+
+  .board-emergency-procedure-modal .ui-modal-body {
+    padding-top: 28px;
+  }
+
+  .board-emergency-procedure {
+    gap: 28px;
+  }
+
+  .board-emergency-procedure-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .board-emergency-procedure-header h2 {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .board-emergency-procedure-header .board-outline-button {
+    width: 100%;
+  }
+
+  .board-emergency-step-list {
+    flex-direction: column;
+  }
+
+  .board-emergency-step-card {
+    width: 100%;
+    max-width: none;
+    min-height: auto;
+  }
+
+  .board-emergency-step-card strong {
+    min-height: auto;
+  }
+
+  .board-emergency-step-arrow {
+    transform: rotate(90deg);
+  }
+
+  .board-activity-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .board-risk-factor-accordion .ui-accordion-trigger {
+    min-height: 144px;
+    align-items: flex-start;
+  }
+
+  .board-risk-factor-title {
+    grid-template-columns: 25px minmax(0, 1fr);
+  }
+
+  .board-risk-factor-accordion .ui-accordion-panel {
+    margin-left: 45px;
+  }
+
+  .board-risk-guide-button,
+  .board-risk-section-header .board-outline-button,
+  .board-student-safety-row .board-risk-action-button,
+  .board-risk-review-submit,
+  .board-risk-recheck-button,
+  .board-reply-compose-button,
+  .board-reply-compose-actions button,
+  .board-reply-send-button {
+    width: 100%;
+  }
+}
