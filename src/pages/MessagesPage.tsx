@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+  type SVGProps,
+} from 'react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { SearchIcon, StarIcon } from '../components/layout/icons';
 import {
+  Accordion,
   Badge,
   Dropdown,
   EmptyState,
@@ -22,7 +29,16 @@ type StudentSafetySignal = 'NONE' | 'POSSIBLE' | 'URGENT_REVIEW';
 type RiskFactorStatus = 'detected' | 'boundary' | 'unknown';
 type SummaryStatus = 'ready' | 'failed';
 type ThreadTab = 'all' | 'starred' | 'drafts';
+type DetailTab = 'conversation' | 'risk' | 'activity';
 type FilterValue = 'all' | 'active' | 'complete';
+type RiskGuideAction = 'original' | 'procedure';
+type RiskFactorIconKind =
+  | 'burden'
+  | 'default'
+  | 'official'
+  | 'repeat'
+  | 'safety';
+type EmergencyProcedureIconKind = 'document' | 'history' | 'manual';
 
 type BufferedSummary = {
   status: SummaryStatus;
@@ -92,6 +108,11 @@ type BoardThread = {
   status: ThreadStatus;
   studentName: string;
   title: string;
+};
+
+type RiskReviewSubmission = {
+  level: SystemRiskLevel;
+  reason: string;
 };
 
 const initialThreads: BoardThread[] = [
@@ -458,6 +479,34 @@ const riskVariant: Record<RiskLevel, BadgeVariant> = {
   urgent: 'critical',
 };
 
+const systemRiskTone: Record<SystemRiskLevel, RiskLevel> = {
+  low: 'normal',
+  medium: 'attention',
+  high: 'danger',
+  emergency: 'urgent',
+};
+
+const systemRiskLabel: Record<SystemRiskLevel, string> = {
+  low: '일반',
+  medium: '주의',
+  high: '위험',
+  emergency: '긴급',
+};
+
+const systemRiskReviewLevels: SystemRiskLevel[] = [
+  'low',
+  'medium',
+  'high',
+  'emergency',
+];
+
+const threadRiskToSystemRisk: Record<RiskLevel, SystemRiskLevel> = {
+  normal: 'low',
+  attention: 'medium',
+  danger: 'high',
+  urgent: 'emergency',
+};
+
 const statusLabel: Record<ThreadStatus, string> = {
   before: '상담 전',
   inProgress: '상담 중',
@@ -476,8 +525,365 @@ const filterOptions: { label: string; value: FilterValue }[] = [
   { label: '완료된 상담', value: 'complete' },
 ];
 
+const detailTabLabel: Record<DetailTab, string> = {
+  conversation: '대화',
+  risk: '위험 요소',
+  activity: '처리 기록',
+};
+
+const detailTabs: DetailTab[] = ['conversation', 'risk', 'activity'];
+
+const riskStageGuides: Record<
+  SystemRiskLevel,
+  {
+    action?: RiskGuideAction;
+    actionLabel?: string;
+    description: string;
+    headline: string;
+    lockDescription: string;
+    lockTitle: string;
+    note?: string;
+    procedureItems?: string[];
+    procedureTitle?: string;
+  }
+> = {
+  low: {
+    headline: '‘일반’ 단계에서는 답변 초안을 사용할 수 있습니다.',
+    description:
+      '대화 화면에 표시된 핵심 요약과 원문을 바탕으로 학교 규정에 맞게 답변을 작성해 주세요.',
+    note: 'AI 초안은 답변 작성 페이지에서 참고용으로만 제공되며, 최종 전송은 교사가 직접 결정합니다.',
+    lockTitle: '답변 작성이 가능한 일반 대화입니다.',
+    lockDescription: '필요한 확인을 마친 뒤 답변을 작성할 수 있습니다.',
+  },
+  medium: {
+    action: 'original',
+    actionLabel: '원문 보기',
+    headline: '‘주의’ 단계에서는 확인 후 답변을 진행합니다.',
+    description:
+      '위험 표현과 판단 이유를 먼저 확인하고 오해 가능성을 낮춘 문장으로 답변해 주세요.',
+    note: '필요하면 원문을 열람하고 답변 초안을 직접 수정할 수 있습니다.',
+    lockTitle: '확인 후 답변이 권장되는 대화입니다.',
+    lockDescription: '위험 표현과 판단 근거를 확인한 뒤 답변을 작성해 주세요.',
+  },
+  high: {
+    action: 'procedure',
+    actionLabel: '대응 절차 보기',
+    headline: '‘위험’ 단계에서는 자유 답변 생성이 제한됩니다.',
+    description:
+      '위험 근거와 원문을 확인하고, 승인된 공식 템플릿 중심으로 대응해 주세요.',
+    note: '증빙 보존과 관리자 공유 여부는 교사가 직접 선택합니다.',
+    procedureTitle: '위험 단계 대응 순서',
+    procedureItems: [
+      '위험 표현과 판단 근거 확인',
+      '필요 시 원문 열람 및 열람 기록 저장',
+      '증빙 패키지 생성 여부 확인',
+      '승인된 공식 템플릿으로 접수 확인 또는 절차 안내',
+    ],
+    lockTitle: '위험도가 높은 대화입니다.',
+    lockDescription:
+      '공식 템플릿과 증빙 보존 절차를 확인한 뒤 답변을 진행해 주세요.',
+  },
+  emergency: {
+    action: 'procedure',
+    actionLabel: '대응 절차 보기',
+    headline: '‘긴급’ 단계에서는 답변 작성이 제한됩니다.',
+    description:
+      '메시지와 위험 요소를 확인하고, 지정 담당자의 검토 후 공식 대응 절차에 따라 답변을 진행해 주세요.',
+    note: '필요 시 위험도를 조정할 수 있으며, 원문 열람 기록은 자동으로 저장됩니다.',
+    procedureTitle: '긴급 단계 대응 순서',
+    procedureItems: [
+      '긴급 근거와 학생 안전 신호 확인',
+      '필요 시 원문 열람 및 열람 기록 저장',
+      '증빙 패키지 보존',
+      '지정 담당자 검토 후 공식 대응 절차 진행',
+    ],
+    lockTitle: '‘긴급’ 단계에서는 답변 작성이 제한됩니다.',
+    lockDescription:
+      '위험도 검토가 끝난 뒤 공식 절차에 맞춰 답변을 진행할 수 있습니다.',
+  },
+};
+
+const emergencyProcedureSteps: {
+  description: string;
+  icon: EmergencyProcedureIconKind;
+  title: string;
+}[] = [
+  {
+    title: '증빙 즉시 보존',
+    icon: 'document',
+    description:
+      '해당 메시지와 관련 자료를 즉시 증빙 보관합니다. 삭제, 수정 없이 원본 그대로 보존해야 합니다.',
+  },
+  {
+    title: '원문 및 이력 확인',
+    icon: 'history',
+    description:
+      '메시지의 전체 내용과 발신자 정보, 이전 이력 등을 확인하여 상황을 정확히 파악합니다.',
+  },
+  {
+    title: '학교 공식 대응 절차 확인',
+    icon: 'manual',
+    description:
+      '학교 및 교육청의 공식 매뉴얼에 따라 대응 절차와 보고 체계를 확인하고 따릅니다.',
+  },
+  {
+    title: '담당 관리자/부서 연락 검토',
+    icon: 'document',
+    description:
+      '필요 시 즉시 담당 관리자 또는 관련 부서에 상황을 공유하고 후속 조치를 협의합니다.',
+  },
+];
+
 function formatNow() {
   return '방금 전';
+}
+
+function renderOriginalMessage(
+  message: string,
+  evidence?: string,
+): ReactNode {
+  if (!message) {
+    return '확인 가능한 원문이 없습니다.';
+  }
+
+  if (!evidence) {
+    return message;
+  }
+
+  const evidenceIndex = message.indexOf(evidence);
+
+  if (evidenceIndex < 0) {
+    return message;
+  }
+
+  const before = message.slice(0, evidenceIndex);
+  const after = message.slice(evidenceIndex + evidence.length);
+
+  return (
+    <>
+      {before}
+      <mark>{evidence}</mark>
+      {after}
+    </>
+  );
+}
+
+function ExternalLinkIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      viewBox="0 0 13 13"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M1.44444 13C1.04722 13 0.707176 12.8586 0.424306 12.5757C0.141435 12.2928 0 11.9528 0 11.5556V1.44444C0 1.04722 0.141435 0.707176 0.424306 0.424306C0.707176 0.141435 1.04722 0 1.44444 0H6.5V1.44444H1.44444V11.5556H11.5556V6.5H13V11.5556C13 11.9528 12.8586 12.2928 12.5757 12.5757C12.2928 12.8586 11.9528 13 11.5556 13H1.44444ZM4.83889 9.17222L3.82778 8.16111L10.5444 1.44444H7.94444V0H13V5.05556H11.5556V2.45556L4.83889 9.17222Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function FileSearchIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      viewBox="0 0 20 20"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M4.5 18A1.5 1.5 0 0 1 3 16.5v-13A1.5 1.5 0 0 1 4.5 2h6.35L17 8.15V16.5a1.5 1.5 0 0 1-1.5 1.5h-11Zm5.6-9.1V3.5H4.5v13h11V8.9h-5.4Zm2.36 5.92-1.5-1.5a2.64 2.64 0 0 1-1.32.35A2.68 2.68 0 0 1 6.95 11a2.68 2.68 0 0 1 2.69-2.67A2.68 2.68 0 0 1 12.32 11c0 .48-.13.92-.35 1.3l1.5 1.5-1.01 1.02Zm-2.82-2.55A1.27 1.27 0 1 0 9.64 9.73a1.27 1.27 0 0 0 0 2.54Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function RiskGuideIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      viewBox="0 0 24 25"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M13.5 13.5C14.0403 13.5 14.5379 13.6632 14.9795 13.9814C15.3724 14.2647 15.6584 14.6359 15.834 15.082L15.9033 15.2783L15.9043 15.2812L17.7715 21.5H19.5V24.5H4.5V21.5H6.22852L8.0957 15.2812L8.09668 15.2783C8.26113 14.7439 8.57137 14.3052 9.02051 13.9814C9.46209 13.6632 9.95974 13.5 10.5 13.5H13.5ZM6.5 16.5V19.5H0.5V16.5H6.5ZM23.5 16.5V19.5H17.5V16.5H23.5ZM5.27734 9.16992L8.82715 12.6953L9.18359 13.0488L8.82812 13.4033L7.40332 14.8281L7.04883 15.1836L6.69531 14.8271L3.16992 11.2773L2.81934 10.9238L4.92383 8.81934L5.27734 9.16992ZM21.1807 10.9238L20.8301 11.2773L17.3047 14.8271L16.9512 15.1836L16.5967 14.8281L15.1719 13.4033L14.8164 13.0488L15.1729 12.6953L18.7227 9.16992L19.0762 8.81934L21.1807 10.9238ZM13.5 6.5V12.5H10.5V6.5H13.5Z"
+        fill="currentColor"
+        stroke="white"
+      />
+    </svg>
+  );
+}
+
+function RiskSectionIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      viewBox="0 0 25 22"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M10.9507 1.22803C11.5333 0.257113 12.9403 0.257112 13.5229 1.22803L23.7573 18.2847C24.3568 19.2844 23.636 20.5562 22.4702 20.5562H2.00342C0.837628 20.5562 0.116861 19.2844 0.716309 18.2847L10.9507 1.22803ZM12.2368 15.2935C12.0482 15.2935 11.9166 15.35 11.8071 15.4556C11.6987 15.5602 11.6461 15.6788 11.646 15.8452C11.646 16.0118 11.6986 16.1311 11.8071 16.2358C11.9166 16.3414 12.0483 16.3979 12.2368 16.3979C12.4254 16.3979 12.557 16.3414 12.6665 16.2358C12.7751 16.1311 12.8276 16.0118 12.8276 15.8452C12.8276 15.6788 12.775 15.5602 12.6665 15.4556C12.557 15.35 12.4254 15.2935 12.2368 15.2935ZM12.146 8.97705C11.8699 8.97705 11.6461 9.20098 11.646 9.47705V12.7407C11.6462 13.0167 11.87 13.2407 12.146 13.2407H12.3276C12.6037 13.2407 12.8274 13.0167 12.8276 12.7407V9.47705C12.8276 9.20098 12.6037 8.97705 12.3276 8.97705H12.146Z"
+        fill="currentColor"
+        stroke="white"
+      />
+    </svg>
+  );
+}
+
+function getRiskFactorIconKind(factor: RiskFactor): RiskFactorIconKind {
+  const text = `${factor.id} ${factor.name} ${factor.description}`;
+
+  if (/법적|공식|교육청|신고|고소|민원/.test(text)) {
+    return 'official';
+  }
+
+  if (/반복|다시|즉시|응답|압박|기한/.test(text)) {
+    return 'repeat';
+  }
+
+  if (/요구|조치|설명|상담/.test(text)) {
+    return 'burden';
+  }
+
+  if (/안전|정서|갈등|가정|생활/.test(text)) {
+    return 'safety';
+  }
+
+  return 'default';
+}
+
+function RiskFactorIcon({ factor }: { factor: RiskFactor }) {
+  const kind = getRiskFactorIconKind(factor);
+
+  if (kind === 'repeat') {
+    return (
+      <svg
+        aria-hidden="true"
+        className="board-risk-factor-icon"
+        fill="none"
+        viewBox="0 0 25 25"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect width="25" height="25" rx="8" fill="#F8F8F8" />
+        <path
+          d="M9.11111 20.5L6 17.3L9.11111 14.1L10.2 15.26L8.99444 16.5H16.8889V13.3H18.4444V18.1H8.99444L10.2 19.34L9.11111 20.5ZM7.55556 11.7V6.9H17.0056L15.8 5.66L16.8889 4.5L20 7.7L16.8889 10.9L15.8 9.74L17.0056 8.5H9.11111V11.7H7.55556Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === 'burden') {
+    return (
+      <svg
+        aria-hidden="true"
+        className="board-risk-factor-icon"
+        fill="none"
+        viewBox="0 0 25 25"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect width="25" height="25" rx="8" fill="#F8F8F8" />
+        <path
+          d="M16.6727 13.25L15.5909 12.2L17.1943 10.625L15.5909 9.06875L16.6727 8L18.2955 9.575L19.8989 8L21 9.06875L19.3773 10.625L21 12.2L19.8989 13.25L18.2955 11.6938L16.6727 13.25ZM7.99886 11.6188C7.39356 11.0312 7.09091 10.325 7.09091 9.5C7.09091 8.675 7.39356 7.96875 7.99886 7.38125C8.60417 6.79375 9.33182 6.5 10.1818 6.5C11.0318 6.5 11.7595 6.79375 12.3648 7.38125C12.9701 7.96875 13.2727 8.675 13.2727 9.5C13.2727 10.325 12.9701 11.0312 12.3648 11.6188C11.7595 12.2063 11.0318 12.5 10.1818 12.5C9.33182 12.5 8.60417 12.2063 7.99886 11.6188ZM4 18.5V16.4C4 15.975 4.11269 15.5844 4.33807 15.2281C4.56345 14.8719 4.86288 14.6 5.23636 14.4125C6.03485 14.025 6.84621 13.7344 7.67045 13.5406C8.4947 13.3469 9.33182 13.25 10.1818 13.25C11.0318 13.25 11.8689 13.3469 12.6932 13.5406C13.5174 13.7344 14.3288 14.025 15.1273 14.4125C15.5008 14.6 15.8002 14.8719 16.0256 15.2281C16.2509 15.5844 16.3636 15.975 16.3636 16.4V18.5H4Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === 'official') {
+    return (
+      <svg
+        aria-hidden="true"
+        className="board-risk-factor-icon"
+        fill="none"
+        viewBox="0 0 25 25"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect width="25" height="25" rx="8" fill="#F8F8F8" />
+        <path
+          d="M5 21.5V19.7105H15.6667V21.5H5ZM10.0222 17.1605L5 12.1053L6.86667 10.1816L11.9333 15.2368L10.0222 17.1605ZM15.6667 11.4789L10.6444 6.37895L12.5556 4.5L17.5778 9.55526L15.6667 11.4789ZM19.7556 20.6053L8.15556 8.92895L9.4 7.67632L21 19.3526L19.7556 20.6053Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="board-risk-factor-icon"
+      fill="none"
+      viewBox="0 0 25 25"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="25" height="25" rx="8" fill="#F8F8F8" />
+      <path
+        d="M12.5 4.5L4.75 18.5H20.25L12.5 4.5ZM11.75 9.75H13.25V14H11.75V9.75ZM11.75 15.25H13.25V16.75H11.75V15.25Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function EmergencyProcedureStepIcon({
+  kind,
+}: {
+  kind: EmergencyProcedureIconKind;
+}) {
+  if (kind === 'history') {
+    return (
+      <svg
+        aria-hidden="true"
+        fill="none"
+        viewBox="0 0 50 50"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M25 50C18.6111 50 13.044 47.8819 8.29861 43.6458C3.55324 39.4097 0.833333 34.1204 0.138889 27.7778H5.83333C6.48148 32.5926 8.62269 36.5741 12.2569 39.7222C15.8912 42.8704 20.1389 44.4444 25 44.4444C30.4167 44.4444 35.0116 42.5579 38.7847 38.7847C42.5579 35.0116 44.4444 30.4167 44.4444 25C44.4444 19.5833 42.5579 14.9884 38.7847 11.2153C35.0116 7.44213 30.4167 5.55556 25 5.55556C21.8056 5.55556 18.8194 6.2963 16.0417 7.77778C13.2639 9.25926 10.9259 11.2963 9.02778 13.8889H16.6667V19.4444H0V2.77778H5.55556V9.30556C7.91667 6.34259 10.7986 4.05093 14.2014 2.43056C17.6042 0.810185 21.2037 0 25 0C28.4722 0 31.7245 0.659722 34.7569 1.97917C37.7894 3.29861 40.4282 5.08102 42.6736 7.32639C44.919 9.57176 46.7014 12.2106 48.0208 15.2431C49.3403 18.2755 50 21.5278 50 25C50 28.4722 49.3403 31.7245 48.0208 34.7569C46.7014 37.7894 44.919 40.4282 42.6736 42.6736C40.4282 44.919 37.7894 46.7014 34.7569 48.0208C31.7245 49.3403 28.4722 50 25 50ZM32.7778 36.6667L22.2222 26.1111V11.1111H27.7778V23.8889L36.6667 32.7778L32.7778 36.6667Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === 'manual') {
+    return (
+      <svg
+        aria-hidden="true"
+        fill="none"
+        viewBox="0 0 53 53"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M26.5 53L9.63636 41.8111V24.1444L0 17.6667L26.5 0L53 17.6667V41.2222H48.1818V20.9056L43.3636 24.1444V41.8111L26.5 53ZM26.5 28.5611L43.0023 17.6667L26.5 6.77222L9.99773 17.6667L26.5 28.5611ZM26.5 46.3014L38.5455 38.3514V27.2361L26.5 35.3333L14.4545 27.2361V38.3514L26.5 46.3014Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      viewBox="0 0 43 59"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M6.14286 59C4.45357 59 3.00744 58.4223 1.80446 57.2669C0.601488 56.1115 0 54.7225 0 53.1V5.9C0 4.2775 0.601488 2.88854 1.80446 1.73312C3.00744 0.577708 4.45357 0 6.14286 0H25.1089C25.928 0 26.7086 0.1475 27.4509 0.4425C28.1932 0.7375 28.8458 1.15542 29.4089 1.69625L41.2339 13.0537C41.797 13.5946 42.2321 14.2215 42.5393 14.9344C42.8464 15.6473 43 16.3971 43 17.1838V53.1C43 54.7225 42.3985 56.1115 41.1955 57.2669C39.9926 58.4223 38.5464 59 36.8571 59H6.14286ZM18.4286 5.9H6.14286V53.1H36.8571V23.6H27.6429C25.0833 23.6 22.9077 22.7396 21.1161 21.0187C19.3244 19.2979 18.4286 17.2083 18.4286 14.75V5.9ZM24.5714 5.9V14.75C24.5714 15.5858 24.8658 16.2865 25.4545 16.8519C26.0432 17.4173 26.7726 17.7 27.6429 17.7H36.8571V17.1838L25.1089 5.9H24.5714ZM15.3571 50.15C14.4869 50.15 13.7574 49.8673 13.1687 49.3019C12.5801 48.7365 12.2857 48.0358 12.2857 47.2C12.2857 46.3642 12.5801 45.6635 13.1687 45.0981C13.7574 44.5327 14.4869 44.25 15.3571 44.25H21.5C22.3702 44.25 23.0997 44.5327 23.6884 45.0981C24.2771 45.6635 24.5714 46.3642 24.5714 47.2C24.5714 48.0358 24.2771 48.7365 23.6884 49.3019C23.0997 49.8673 22.3702 50.15 21.5 50.15H15.3571ZM15.3571 38.35C14.4869 38.35 13.7574 38.0673 13.1687 37.5019C12.5801 36.9365 12.2857 36.2358 12.2857 35.4C12.2857 34.5642 12.5801 33.8635 13.1687 33.2981C13.7574 32.7327 14.4869 32.45 15.3571 32.45H27.6429C28.5131 32.45 29.2426 32.7327 29.8312 33.2981C30.4199 33.8635 30.7143 34.5642 30.7143 35.4C30.7143 36.2358 30.4199 36.9365 29.8312 37.5019C29.2426 38.0673 28.5131 38.35 27.6429 38.35H15.3571Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
 }
 
 function ProfileAvatar({
@@ -761,26 +1167,715 @@ function DraftResumeDialog({
   );
 }
 
+type OriginalMessageModalProps = {
+  evidence?: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  thread: BoardThread;
+};
+
+function OriginalMessageModal({
+  evidence,
+  onOpenChange,
+  open,
+  thread,
+}: OriginalMessageModalProps) {
+  const evidenceFound = Boolean(
+    evidence && thread.originalMessage?.includes(evidence),
+  );
+
+  return (
+    <Modal
+      description={
+        evidence
+          ? '선택한 판단 근거가 원문 안에서 강조되어 표시됩니다.'
+          : '학부모가 작성한 원문입니다.'
+      }
+      footer={
+        <button
+          className="board-primary-button board-modal-close-action"
+          onClick={() => onOpenChange(false)}
+          type="button"
+        >
+          확인
+        </button>
+      }
+      onOpenChange={onOpenChange}
+      open={open}
+      size="lg"
+      title="원문 확인"
+    >
+      <div className="board-original-modal-content">
+        <div className="board-original-notice">
+          원문 열람 기록은 처리 기록에 자동으로 저장됩니다.
+        </div>
+        {evidence && !evidenceFound ? (
+          <p className="board-original-help">
+            선택한 근거 문구가 원문과 정확히 일치하지 않아 전체 원문을
+            표시합니다.
+          </p>
+        ) : null}
+        <p className="board-original-message">
+          {renderOriginalMessage(thread.originalMessage ?? '', evidence)}
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
+type RiskFactorTitleProps = {
+  factor: RiskFactor;
+};
+
+function RiskFactorTitle({ factor }: RiskFactorTitleProps) {
+  return (
+    <span
+      className={`board-risk-factor-title board-risk-factor-title--${factor.status}`}
+    >
+      <RiskFactorIcon factor={factor} />
+      <span className="board-risk-factor-copy">
+        <strong>{factor.name}</strong>
+        <span>{factor.description}</span>
+      </span>
+    </span>
+  );
+}
+
+type RiskFactorDetailProps = {
+  factor: RiskFactor;
+};
+
+function RiskFactorDetail({ factor }: RiskFactorDetailProps) {
+  return (
+    <div className="board-risk-factor-detail">
+      <p>{factor.rationale}</p>
+    </div>
+  );
+}
+
+type EmergencyProcedureModalProps = {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+};
+
+function EmergencyProcedureModal({
+  onOpenChange,
+  open,
+}: EmergencyProcedureModalProps) {
+  return (
+    <Modal
+      className="board-emergency-procedure-modal"
+      onOpenChange={onOpenChange}
+      open={open}
+      size="lg"
+      title={<span className="sr-only">긴급 대응 절차</span>}
+    >
+      <div className="board-emergency-procedure">
+        <div className="board-emergency-procedure-header">
+          <div>
+            <RiskSectionIcon />
+            <h2>긴급 대응 절차 (반드시 순서대로 진행)</h2>
+          </div>
+          <button className="board-outline-button" type="button">
+            <span>공식 대응 매뉴얼</span>
+            <ExternalLinkIcon />
+          </button>
+        </div>
+
+        <div className="board-emergency-step-list" role="list">
+          {emergencyProcedureSteps.map((step, index) => (
+            <div className="board-emergency-step-group" key={step.title}>
+              <article className="board-emergency-step-card" role="listitem">
+                <div className="board-emergency-step-card-header">
+                  <span className="board-emergency-step-chip">
+                    STEP {index + 1}
+                  </span>
+                  <span className="board-emergency-step-icon">
+                    <EmergencyProcedureStepIcon kind={step.icon} />
+                  </span>
+                </div>
+                <strong>{step.title}</strong>
+                <p>{step.description}</p>
+              </article>
+              {index < emergencyProcedureSteps.length - 1 ? (
+                <span
+                  aria-hidden="true"
+                  className="board-emergency-step-arrow"
+                >
+                  <svg
+                    fill="none"
+                    viewBox="0 0 15 23"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M2.26115 23L0 20.9587L10.4777 11.5L0 2.04125L2.26115 0L15 11.5L2.26115 23Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+type RiskReviewPanelProps = {
+  canReview: boolean;
+  level: SystemRiskLevel;
+  onLevelChange: (level: SystemRiskLevel) => void;
+  onReasonChange: (reason: string) => void;
+  onSubmit: () => void;
+  reason: string;
+  referenceLevel: SystemRiskLevel;
+  threadId: string;
+};
+
+function RiskReviewPanel({
+  canReview,
+  level,
+  onLevelChange,
+  onReasonChange,
+  onSubmit,
+  reason,
+  referenceLevel,
+  threadId,
+}: RiskReviewPanelProps) {
+  const trimmedReason = reason.trim();
+  const reasonInputId = `board-risk-review-reason-${threadId}`;
+  const selectedLevelIndex = Math.max(
+    0,
+    systemRiskReviewLevels.indexOf(level),
+  );
+  const referenceLevelIndex = Math.max(
+    0,
+    systemRiskReviewLevels.indexOf(referenceLevel),
+  );
+  const isDownwardReview = selectedLevelIndex < referenceLevelIndex;
+  const isUpwardReview = selectedLevelIndex > referenceLevelIndex;
+  const isEmergencyDowngrade =
+    referenceLevel === 'emergency' && isDownwardReview;
+  const isReasonRequired = isDownwardReview;
+  const reviewInfoText = isEmergencyDowngrade
+    ? '긴급 단계 하향은 관리자 또는 별도 책임자의 확인 후 반영됩니다.'
+    : isDownwardReview
+      ? '하향 수정 사유는 오탐 원인 분석과 임계값 재조정에 활용됩니다.'
+      : isUpwardReview
+        ? '상향 수정은 즉시 반영되며 수정 전후 기록이 저장됩니다.'
+        : '수정 전·후 위험도, 수정자, 수정 시각은 처리 기록에 저장됩니다.';
+  const submitLabel = isEmergencyDowngrade
+    ? '확인 요청'
+    : isDownwardReview
+      ? '하향 반영'
+      : isUpwardReview
+        ? '상향 반영'
+        : '검토 완료';
+  const handleSliderChange = (value: string) => {
+    onLevelChange(systemRiskReviewLevels[Number(value)]);
+  };
+
+  return (
+    <section
+      aria-labelledby="board-risk-review-title"
+      className="board-risk-review-panel"
+    >
+      <div className="board-risk-review-overview">
+        <div className="board-risk-review-copy">
+          <h2 className="board-risk-section-title" id="board-risk-review-title">
+            위험도 검토
+          </h2>
+          <p>이 메시지의 위험도를 어떻게 판단하시나요?</p>
+        </div>
+
+        <div
+          className={`board-risk-review-slider board-risk-review-slider--${level} board-risk-review-slider-current--${referenceLevel}`}
+        >
+          <div className="board-risk-current-marker" aria-hidden="true">
+            <span>
+              <svg
+                className="board-risk-current-marker-union"
+                fill="none"
+                viewBox="0 0 65 27"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M59 0C62.3137 0 65 2.68629 65 6V16C65 19.3137 62.3137 22 59 22H36.2109L33.4551 26.0391C33.0581 26.6209 32.1997 26.6209 31.8027 26.0391L29.0469 22H6C2.68629 22 9.66416e-08 19.3137 0 16V6C0 2.68629 2.68629 6.84522e-08 6 0H59Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <strong>현재 단계</strong>
+            </span>
+          </div>
+          <div className="board-risk-review-control">
+            <span aria-hidden="true" className="board-risk-review-line" />
+            <input
+              aria-label="위험도 단계"
+              aria-valuetext={systemRiskLabel[level]}
+              className="board-risk-review-range"
+              disabled={!canReview}
+              max={systemRiskReviewLevels.length - 1}
+              min={0}
+              onChange={(event) => handleSliderChange(event.target.value)}
+              step={1}
+              type="range"
+              value={selectedLevelIndex}
+            />
+            <span className="board-risk-review-thumb" />
+          </div>
+          <div
+            aria-label="위험도 단계 선택"
+            className="board-risk-review-levels"
+            role="group"
+          >
+            {systemRiskReviewLevels.map((currentLevel) => (
+              <button
+                aria-pressed={level === currentLevel}
+                className={
+                  level === currentLevel
+                    ? 'board-risk-review-level is-active'
+                    : 'board-risk-review-level'
+                }
+                disabled={!canReview}
+                key={currentLevel}
+                onClick={() => onLevelChange(currentLevel)}
+                type="button"
+              >
+                {systemRiskLabel[currentLevel]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="board-risk-review-reason">
+        <label htmlFor={reasonInputId}>
+          <span>검토 사유 </span>
+          {isReasonRequired ? <strong aria-hidden="true">*</strong> : null}
+        </label>
+        <div className="board-risk-review-textarea-shell">
+          <textarea
+            disabled={!canReview}
+            id={reasonInputId}
+            maxLength={300}
+            onChange={(event) => onReasonChange(event.target.value)}
+            placeholder={
+              isReasonRequired
+                ? '하향 수정 사유를 입력해주세요.'
+                : '검토 사유를 입력해주세요.'
+            }
+            value={reason}
+          />
+          <span>{reason.length} / 300</span>
+        </div>
+      </div>
+
+      <div className="board-risk-review-footer">
+        <div className="board-risk-review-info">
+          <svg
+            aria-hidden="true"
+            fill="none"
+            viewBox="0 0 20 20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M9 15H11V9H9V15ZM10.7125 6.7125C10.9042 6.52083 11 6.28333 11 6C11 5.71667 10.9042 5.47917 10.7125 5.2875C10.5208 5.09583 10.2833 5 10 5C9.71667 5 9.47917 5.09583 9.2875 5.2875C9.09583 5.47917 9 5.71667 9 6C9 6.28333 9.09583 6.52083 9.2875 6.7125C9.47917 6.90417 9.71667 7 10 7C10.2833 7 10.5208 6.90417 10.7125 6.7125ZM10 20C8.61667 20 7.31667 19.7375 6.1 19.2125C4.88333 18.6875 3.825 17.975 2.925 17.075C2.025 16.175 1.3125 15.1167 0.7875 13.9C0.2625 12.6833 0 11.3833 0 10C0 8.61667 0.2625 7.31667 0.7875 6.1C1.3125 4.88333 2.025 3.825 2.925 2.925C3.825 2.025 4.88333 1.3125 6.1 0.7875C7.31667 0.2625 8.61667 0 10 0C11.3833 0 12.6833 0.2625 13.9 0.7875C15.1167 1.3125 16.175 2.025 17.075 2.925C17.975 3.825 18.6875 4.88333 19.2125 6.1C19.7375 7.31667 20 8.61667 20 10C20 11.3833 19.7375 12.6833 19.2125 13.9C18.6875 15.1167 17.975 16.175 17.075 17.075C16.175 17.975 15.1167 18.6875 13.9 19.2125C12.6833 19.7375 11.3833 20 10 20Z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>{reviewInfoText}</span>
+        </div>
+        <button
+          className="board-primary-button board-risk-review-submit"
+          disabled={
+            !canReview || (isReasonRequired && trimmedReason.length === 0)
+          }
+          onClick={onSubmit}
+          type="button"
+        >
+          {submitLabel}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+type RiskAnalysisPanelProps = {
+  onReviewComplete: (threadId: string, review: RiskReviewSubmission) => void;
+  onOriginalOpen: (evidence?: string) => void;
+  onReviewRequest: (threadId: string) => void;
+  thread: BoardThread;
+};
+
+function RiskAnalysisPanel({
+  onReviewComplete,
+  onOriginalOpen,
+  onReviewRequest,
+  thread,
+}: RiskAnalysisPanelProps) {
+  const [isProcedureOpen, setIsProcedureOpen] = useState(false);
+  const [isEmergencyProcedureModalOpen, setIsEmergencyProcedureModalOpen] =
+    useState(false);
+  const analysis = thread.analysis;
+  const initialReviewLevel =
+    analysis?.teacherReviewedRiskLevel ?? analysis?.systemRiskLevel ?? 'low';
+  const [reviewLevel, setReviewLevel] =
+    useState<SystemRiskLevel>(initialReviewLevel);
+  const [reviewReason, setReviewReason] = useState(
+    analysis?.teacherReviewReason ?? '',
+  );
+
+  useEffect(() => {
+    setReviewLevel(initialReviewLevel);
+    setReviewReason(analysis?.teacherReviewReason ?? '');
+  }, [analysis?.teacherReviewReason, initialReviewLevel, thread.id]);
+
+  if (!analysis) {
+    return (
+      <EmptyState
+        className="board-risk-empty"
+        description="AI 분석 결과가 연결되면 위험 요소와 판단 근거를 확인할 수 있습니다."
+        title="표시할 위험 요소가 없습니다"
+      />
+    );
+  }
+
+  const canInspectOriginal = Boolean(
+    analysis.canViewOriginal &&
+      analysis.originalMessageAvailable &&
+      thread.originalMessage,
+  );
+  const effectiveRiskLevel =
+    analysis.teacherReviewedRiskLevel ?? analysis.systemRiskLevel;
+  const currentTone = systemRiskTone[effectiveRiskLevel];
+  const currentGuide = riskStageGuides[effectiveRiskLevel];
+  const visibleRiskFactors = analysis.riskFactors.filter(
+    (factor) => factor.status !== 'unknown',
+  );
+  const studentSafetyFactor = visibleRiskFactors.find((factor) =>
+    /안전|정서|학생/.test(
+      `${factor.id} ${factor.name} ${factor.description}`,
+    ),
+  );
+  const riskFactorItems = visibleRiskFactors.map((factor) => ({
+    id: factor.id,
+    title: <RiskFactorTitle factor={factor} />,
+    content: <RiskFactorDetail factor={factor} />,
+  }));
+  const hasGuideAction = Boolean(currentGuide.action && currentGuide.actionLabel);
+  const isProcedureGuide = currentGuide.action === 'procedure';
+  const isEmergencyGuide = effectiveRiskLevel === 'emergency';
+  const canUseGuideAction =
+    hasGuideAction && (isProcedureGuide || canInspectOriginal);
+  const canShowEvidenceOriginalButton =
+    effectiveRiskLevel !== 'low' && canInspectOriginal;
+  const canShowReviewPanel =
+    analysis.canReviewRisk ||
+    Boolean(analysis.teacherReviewedRiskLevel) ||
+    analysis.safetyLock ||
+    thread.riskReviewRequired;
+  const canShowStudentSafetyCard = analysis.studentSafetySignal !== 'NONE';
+  const handleGuideAction = () => {
+    if (isEmergencyGuide) {
+      setIsEmergencyProcedureModalOpen(true);
+      return;
+    }
+
+    if (isProcedureGuide) {
+      setIsProcedureOpen((isOpen) => !isOpen);
+      return;
+    }
+
+    if (currentGuide.action === 'original') {
+      onOriginalOpen();
+    }
+  };
+  const handleReviewSubmit = () => {
+    const reason = reviewReason.trim();
+    const selectedLevelIndex = systemRiskReviewLevels.indexOf(reviewLevel);
+    const referenceLevelIndex = systemRiskReviewLevels.indexOf(initialReviewLevel);
+
+    if (
+      !analysis.canReviewRisk ||
+      (selectedLevelIndex < referenceLevelIndex && !reason)
+    ) {
+      return;
+    }
+
+    onReviewComplete(thread.id, {
+      level: reviewLevel,
+      reason,
+    });
+  };
+
+  return (
+    <div className="board-risk-tab">
+      <section
+        className={`board-risk-guide board-risk-guide--${currentTone}${
+          isProcedureOpen ? ' is-expanded' : ''
+        }`}
+      >
+        <div className="board-risk-guide-copy">
+          <RiskGuideIcon className="board-risk-guide-icon" />
+          <strong>{currentGuide.headline}</strong>
+          {hasGuideAction ? (
+            <button
+              className="board-outline-button board-risk-action-button board-risk-guide-button"
+              disabled={!canUseGuideAction}
+              onClick={handleGuideAction}
+              aria-expanded={
+                isProcedureGuide && !isEmergencyGuide
+                  ? isProcedureOpen
+                  : undefined
+              }
+              aria-haspopup={isEmergencyGuide ? 'dialog' : undefined}
+              type="button"
+            >
+              <span>{currentGuide.actionLabel}</span>
+              <ExternalLinkIcon />
+            </button>
+          ) : null}
+          <span className="board-risk-guide-description">
+            {currentGuide.description}
+            {currentGuide.note ? (
+              <>
+                <br />
+                {currentGuide.note}
+              </>
+            ) : null}
+          </span>
+          {isProcedureGuide && isProcedureOpen ? (
+            <div className="board-risk-guide-procedure">
+              <strong>{currentGuide.procedureTitle}</strong>
+              <ol>
+                {currentGuide.procedureItems?.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ol>
+              {thread.officialTemplates?.length ? (
+                <p>
+                  사용 가능 템플릿: {thread.officialTemplates.join(', ')}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="board-risk-evidence-panel">
+        <div className="board-risk-section-header">
+          <div>
+            <RiskSectionIcon />
+            <h2 className="board-risk-section-title">
+              확인된 위험 요소와 판단 근거
+            </h2>
+          </div>
+          {canShowEvidenceOriginalButton ? (
+            <button
+              className="board-outline-button board-risk-action-button"
+              onClick={() => onOriginalOpen()}
+              type="button"
+            >
+              <span>원문 보기</span>
+              <ExternalLinkIcon />
+            </button>
+          ) : null}
+        </div>
+
+        {riskFactorItems.length > 0 ? (
+          <Accordion
+            allowMultiple
+            className="board-risk-factor-accordion"
+            items={riskFactorItems}
+          />
+        ) : (
+          <EmptyState
+            className="board-risk-empty board-risk-factor-empty"
+            description="이 메시지에서는 별도 위험 요소가 감지되지 않았습니다."
+            title="없음"
+          />
+        )}
+      </section>
+
+      {canShowReviewPanel ? (
+        <RiskReviewPanel
+          canReview={analysis.canReviewRisk}
+          level={reviewLevel}
+          onLevelChange={setReviewLevel}
+          onReasonChange={setReviewReason}
+          onSubmit={handleReviewSubmit}
+          reason={reviewReason}
+          referenceLevel={initialReviewLevel}
+          threadId={thread.id}
+        />
+      ) : null}
+
+      {analysis.safetyLock || thread.riskReviewRequired ? (
+        <section className="board-risk-lock-review">
+          <div className="board-risk-lock-content">
+            <div className="board-risk-lock-notice">
+              <div className="board-risk-lock-heading">
+                <span className="board-lock-icon" aria-hidden="true">
+                  <svg
+                    fill="none"
+                    viewBox="0 0 25 25"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle cx="12.5" cy="12.5" fill="#FF4B6C" r="12.5" />
+                    <path
+                      d="M8.375 19C7.99688 19 7.67318 18.8788 7.40391 18.6363C7.13464 18.3938 7 18.1024 7 17.7619V11.5714C7 11.231 7.13464 10.9395 7.40391 10.697C7.67318 10.4546 7.99688 10.3333 8.375 10.3333H9.0625V9.09524C9.0625 8.23889 9.39766 7.50893 10.068 6.90536C10.7383 6.30179 11.549 6 12.5 6C13.451 6 14.2617 6.30179 14.932 6.90536C15.6023 7.50893 15.9375 8.23889 15.9375 9.09524V10.3333H16.625C17.0031 10.3333 17.3268 10.4546 17.5961 10.697C17.8654 10.9395 18 11.231 18 11.5714V17.7619C18 18.1024 17.8654 18.3938 17.5961 18.6363C17.3268 18.8788 17.0031 19 16.625 19H8.375ZM13.4711 15.5411C13.7404 15.2986 13.875 15.0071 13.875 14.6667C13.875 14.3262 13.7404 14.0347 13.4711 13.7923C13.2018 13.5498 12.8781 13.4286 12.5 13.4286C12.1219 13.4286 11.7982 13.5498 11.5289 13.7923C11.2596 14.0347 11.125 14.3262 11.125 14.6667C11.125 15.0071 11.2596 15.2986 11.5289 15.5411C11.7982 15.7835 12.1219 15.9048 12.5 15.9048C12.8781 15.9048 13.2018 15.7835 13.4711 15.5411ZM10.4375 10.3333H14.5625V9.09524C14.5625 8.57937 14.362 8.14087 13.9609 7.77976C13.5599 7.41865 13.0729 7.2381 12.5 7.2381C11.9271 7.2381 11.4401 7.41865 11.0391 7.77976C10.638 8.14087 10.4375 8.57937 10.4375 9.09524V10.3333Z"
+                      fill="white"
+                    />
+                  </svg>
+                </span>
+                <strong>현재 답변 작성이 제한되어 있습니다.</strong>
+              </div>
+              <p>담당자가 위험도를 검토한 후 답변을 작성할 수 있습니다.</p>
+            </div>
+          </div>
+          <div className="board-risk-lock-actions">
+            <button
+              className="board-outline-button board-risk-recheck-button"
+              disabled={!analysis.canReviewRisk}
+              onClick={() => onReviewRequest(thread.id)}
+              type="button"
+            >
+              재검토 요청
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {canShowStudentSafetyCard ? (
+        <section className="board-student-safety-card">
+          <div className="board-student-safety-content">
+            <div className="board-student-safety-copy">
+              <h2>학생 안전 관련 확인</h2>
+              <div className="board-student-safety-row">
+                <p>
+                  <span>
+                    학생 안전과 관련해 추가 확인이 필요할 수 있습니다.
+                  </span>
+                  <span>
+                    자동 신고는 진행되지 않으며, 필요한 경우 내용을 직접
+                    확인해주세요.
+                  </span>
+                </p>
+                <button
+                  className="board-outline-button board-risk-action-button"
+                  disabled={!canInspectOriginal}
+                  onClick={() => onOriginalOpen(studentSafetyFactor?.evidence)}
+                  type="button"
+                >
+                  <span>관련 내용 확인</span>
+                  <ExternalLinkIcon />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <EmergencyProcedureModal
+        onOpenChange={setIsEmergencyProcedureModalOpen}
+        open={isEmergencyProcedureModalOpen}
+      />
+    </div>
+  );
+}
+
+type ActivityLogPanelProps = {
+  thread: BoardThread;
+};
+
+function ActivityLogPanel({ thread }: ActivityLogPanelProps) {
+  const logs = thread.analysis?.activityLogs ?? [];
+
+  if (logs.length === 0) {
+    return (
+      <EmptyState
+        className="board-risk-empty"
+        description="위험 요소 확인, 원문 열람, 재검토 요청 기록이 이곳에 쌓입니다."
+        title="처리 기록이 없습니다"
+      />
+    );
+  }
+
+  return (
+    <section className="board-activity-panel" aria-label="처리 기록">
+      <div className="board-risk-section-header">
+        <div>
+          <FileSearchIcon aria-hidden="true" />
+          <h2 className="board-risk-section-title">처리 기록</h2>
+        </div>
+      </div>
+      <ol className="board-activity-list">
+        {logs.map((log) => (
+          <li key={log.id}>
+            <time>{log.time}</time>
+            <div>
+              <strong>{log.action}</strong>
+              <span>{log.actor}</span>
+              <p>{log.detail}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 type DetailProps = {
   onBack: () => void;
-  onDraftChange: (threadId: string, value: string) => void;
-  onReviewComplete: (threadId: string) => void;
-  onSubmitReply: (threadId: string) => void;
+  onOpenReplyComposer: (threadId: string) => void;
+  onOriginalViewed: (threadId: string, evidence?: string) => void;
+  onReviewComplete: (threadId: string, review: RiskReviewSubmission) => void;
+  onReviewRequest: (threadId: string) => void;
   thread: BoardThread;
 };
 
 function ThreadDetail({
   onBack,
-  onDraftChange,
+  onOpenReplyComposer,
+  onOriginalViewed,
   onReviewComplete,
-  onSubmitReply,
+  onReviewRequest,
   thread,
 }: DetailProps) {
+  const [activeDetailTab, setActiveDetailTab] =
+    useState<DetailTab>('conversation');
+  const [originalViewer, setOriginalViewer] = useState<{
+    evidence?: string;
+  } | null>(null);
   const isLocked = thread.risk === 'urgent' && thread.riskReviewRequired;
   const hasDraft = thread.draftText.trim().length > 0;
+  const lockedGuide =
+    riskStageGuides[
+      thread.analysis?.systemRiskLevel ?? threadRiskToSystemRisk[thread.risk]
+    ];
   const showBufferedSummaryOnly =
     Boolean(thread.moderatedSummary) &&
     (thread.risk === 'urgent' || thread.risk === 'danger');
+  const canInspectOriginal = Boolean(
+    thread.analysis?.canViewOriginal &&
+      thread.analysis.originalMessageAvailable &&
+      thread.originalMessage,
+  );
+
+  useEffect(() => {
+    setActiveDetailTab('conversation');
+    setOriginalViewer(null);
+  }, [thread.id]);
+
+  const openOriginalViewer = (evidence?: string) => {
+    if (!canInspectOriginal) {
+      return;
+    }
+
+    setOriginalViewer({ evidence });
+    onOriginalViewed(thread.id, evidence);
+  };
 
   return (
     <section className="board-detail" aria-labelledby="board-detail-title">
@@ -844,16 +1939,22 @@ function ThreadDetail({
               fill="currentColor"
             />
           </svg>
-          <strong>대화</strong>
+          <strong>{detailTabLabel[activeDetailTab]}</strong>
         </nav>
       </header>
 
       <nav aria-label="메시지 상세 탭" className="board-detail-tabs">
-        <button aria-current="page" className="is-active" type="button">
-          대화
-        </button>
-        <button type="button">위험 요소</button>
-        <button type="button">처리 기록</button>
+        {detailTabs.map((tab) => (
+          <button
+            aria-current={activeDetailTab === tab ? 'page' : undefined}
+            className={activeDetailTab === tab ? 'is-active' : ''}
+            key={tab}
+            onClick={() => setActiveDetailTab(tab)}
+            type="button"
+          >
+            {detailTabLabel[tab]}
+          </button>
+        ))}
       </nav>
 
       <div className="board-parent-card">
@@ -886,20 +1987,22 @@ function ThreadDetail({
         </div>
       </div>
 
-      <div className="board-info-box">
-        <span aria-hidden="true">i</span>
-        <p>
-          학부모 게시글은 완화된 내용으로 먼저 표시됩니다. 필요 시 원문 보기와
-          판단 근거를 함께 확인한 뒤 답변을 남길 수 있습니다.
-        </p>
-      </div>
+      {activeDetailTab === 'conversation' ? (
+        <>
+          <div className="board-info-box">
+            <span aria-hidden="true">i</span>
+            <p>
+              학부모 게시글은 완화된 내용으로 먼저 표시됩니다. 필요 시 원문
+              보기와 판단 근거를 함께 확인한 뒤 답변을 남길 수 있습니다.
+            </p>
+          </div>
 
-      <div
-        className={`board-conversation${
-          showBufferedSummaryOnly ? ' is-summary-only' : ''
-        }`}
-        aria-label="게시글 답글 스레드"
-      >
+          <div
+            className={`board-conversation${
+              showBufferedSummaryOnly ? ' is-summary-only' : ''
+            }`}
+            aria-label="게시글 답글 스레드"
+          >
         <div className="board-date-chip">
           <svg
             aria-hidden="true"
@@ -942,8 +2045,19 @@ function ThreadDetail({
                   <p>{thread.moderatedSummary}</p>
                 </div>
                 <div className="board-moderation-actions">
-                  <button type="button">원문 보기</button>
-                  <button type="button">판단 근거</button>
+                  <button
+                    disabled={!canInspectOriginal}
+                    onClick={() => openOriginalViewer()}
+                    type="button"
+                  >
+                    원문 보기
+                  </button>
+                  <button
+                    onClick={() => setActiveDetailTab('risk')}
+                    type="button"
+                  >
+                    판단 근거
+                  </button>
                 </div>
               </div>
               <time>{thread.replies[0]?.time ?? thread.latestAtLabel}</time>
@@ -997,16 +2111,13 @@ function ThreadDetail({
                   </svg>
                 </span>
                 <div>
-                  <strong>위험도가 높은 대화입니다.</strong>
-                  <p>
-                    긴급 단계에서는 답변 작성이 제한되며, 위험도 검토 후 답변을
-                    진행할 수 있습니다.
-                  </p>
+                  <strong>{lockedGuide.lockTitle}</strong>
+                  <p>{lockedGuide.lockDescription}</p>
                 </div>
               </div>
               <button
                 className="board-outline-button board-risk-review-button"
-                onClick={() => onReviewComplete(thread.id)}
+                onClick={() => setActiveDetailTab('risk')}
                 type="button"
               >
                 <svg
@@ -1025,30 +2136,209 @@ function ThreadDetail({
             </>
           ) : (
             <>
-              <label htmlFor="board-reply-input">선생님 답변</label>
-              <textarea
-                id="board-reply-input"
-                onChange={(event) =>
-                  onDraftChange(thread.id, event.target.value)
-                }
-                placeholder="학부모 게시글에 남길 답변을 작성하세요."
-                rows={5}
-                value={thread.draftText}
-              />
-              <div className="board-answer-actions">
-                <span>{hasDraft ? '임시저장됨' : '작성 중인 답변 없음'}</span>
+              <div className="board-answer-cta-copy">
+                <strong>답변 작성이 필요합니다.</strong>
+                <p>
+                  학부모 메시지와 위험 요소를 확인한 뒤 답변 작성 도우미에서
+                  초안을 다듬을 수 있습니다.
+                </p>
+              </div>
+              <div className="board-answer-actions board-answer-actions--cta">
+                <span>{hasDraft ? '작성 중인 답변이 있습니다' : '새 답변 작성'}</span>
                 <button
-                  className="board-primary-button"
-                  disabled={!hasDraft}
-                  onClick={() => onSubmitReply(thread.id)}
+                  className="board-primary-button board-reply-compose-button"
+                  onClick={() => onOpenReplyComposer(thread.id)}
                   type="button"
                 >
-                  전송
+                  {hasDraft ? '답변 이어서 작성하기' : '답변 작성하러 가기'}
                 </button>
               </div>
             </>
           )}
+          </div>
+          </div>
+        </>
+      ) : null}
+
+      {activeDetailTab === 'risk' ? (
+        <RiskAnalysisPanel
+          onReviewComplete={onReviewComplete}
+          onOriginalOpen={openOriginalViewer}
+          onReviewRequest={onReviewRequest}
+          thread={thread}
+        />
+      ) : null}
+
+      {activeDetailTab === 'activity' ? (
+        <ActivityLogPanel thread={thread} />
+      ) : null}
+
+      <OriginalMessageModal
+        evidence={originalViewer?.evidence}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOriginalViewer(null);
+          }
+        }}
+        open={originalViewer !== null}
+        thread={thread}
+      />
+    </section>
+  );
+}
+
+type ReplyComposerPageProps = {
+  onBack: () => void;
+  onDraftChange: (threadId: string, value: string) => void;
+  onSubmitReply: (threadId: string) => void;
+  thread: BoardThread;
+};
+
+function ReplyComposerPage({
+  onBack,
+  onDraftChange,
+  onSubmitReply,
+  thread,
+}: ReplyComposerPageProps) {
+  const hasDraft = thread.draftText.trim().length > 0;
+  const helperItems = [
+    '사실 확인이 필요한 내용은 단정하지 않고 확인 예정으로 표현합니다.',
+    '학생 안전이나 정서 관련 내용은 관찰 및 상담 계획과 함께 안내합니다.',
+    '최종 전송 전 학교 규정과 공유 범위를 다시 확인합니다.',
+  ];
+
+  return (
+    <section className="board-detail" aria-labelledby="board-composer-title">
+      <header className="board-detail-page-header">
+        <div className="board-detail-title-group">
+          <button
+            aria-label="메시지 상세로 돌아가기"
+            className="board-back-button"
+            onClick={onBack}
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              fill="none"
+              viewBox="0 0 16 15"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M3.825 8.24079 9.425 13.3684 8 14.6503 0 7.32515 8 0l1.425 1.2819-5.6 5.1276H16v1.83129H3.825Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+          <h1 id="board-composer-title">답변 작성</h1>
         </div>
+
+        <nav aria-label="현재 위치" className="board-page-nav">
+          <span>홈</span>
+          <svg
+            aria-hidden="true"
+            fill="none"
+            viewBox="0 0 7 13"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M1.0552 13 0 11.8462 4.8896 6.5 0 1.15375 1.0552 0 7 6.5 1.0552 13Z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>메시지</span>
+          <svg
+            aria-hidden="true"
+            fill="none"
+            viewBox="0 0 7 13"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M1.0552 13 0 11.8462 4.8896 6.5 0 1.15375 1.0552 0 7 6.5 1.0552 13Z"
+              fill="currentColor"
+            />
+          </svg>
+          <strong>답변 작성</strong>
+        </nav>
+      </header>
+
+      <div className="board-parent-card">
+        <div className="board-card-profile">
+          <ProfileAvatar />
+          <span>
+            <strong>{thread.parentName}</strong>
+            <small>{thread.className}</small>
+          </span>
+        </div>
+        <div className="board-card-topic">
+          <strong>{thread.title}</strong>
+          <span>{thread.latestMessage}</span>
+        </div>
+        <div className="board-card-meta-group">
+          <div className="board-card-meta">
+            <span>위험도</span>
+            <Badge
+              className={`board-risk-badge board-risk-${thread.risk}`}
+              size="sm"
+              variant={riskVariant[thread.risk]}
+            >
+              {riskLabel[thread.risk]}
+            </Badge>
+          </div>
+          <div className="board-card-meta">
+            <span>최근 수신</span>
+            <time dateTime={thread.latestAt}>{thread.latestAtLabel}</time>
+          </div>
+        </div>
+      </div>
+
+      <div className="board-reply-composer">
+        <section className="board-reply-context-panel">
+          <h2>메시지 확인</h2>
+          <p>{thread.moderatedSummary ?? thread.latestMessage}</p>
+          {thread.originalMessage ? (
+            <blockquote>{thread.originalMessage}</blockquote>
+          ) : null}
+        </section>
+
+        <section className="board-reply-helper-panel">
+          <h2>작성 도움말</h2>
+          <ul>
+            {helperItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="board-reply-compose-panel">
+          <label htmlFor="board-reply-composer-input">선생님 답변</label>
+          <textarea
+            id="board-reply-composer-input"
+            onChange={(event) => onDraftChange(thread.id, event.target.value)}
+            placeholder="학부모에게 전달할 답변을 작성하세요."
+            rows={8}
+            value={thread.draftText}
+          />
+          <div className="board-reply-compose-actions">
+            <span>{hasDraft ? '임시저장됨' : '작성 중인 답변 없음'}</span>
+            <div>
+              <button
+                className="board-outline-button"
+                onClick={onBack}
+                type="button"
+              >
+                상세로 돌아가기
+              </button>
+              <button
+                className="board-primary-button board-reply-send-button"
+                disabled={!hasDraft}
+                onClick={() => onSubmitReply(thread.id)}
+                type="button"
+              >
+                전송
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
     </section>
   );
@@ -1061,6 +2351,9 @@ export function MessagesPage() {
     null,
   );
   const [query, setQuery] = useState('');
+  const [replyComposerThreadId, setReplyComposerThreadId] = useState<
+    string | null
+  >(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [threads, setThreads] = useState(initialThreads);
@@ -1097,6 +2390,8 @@ export function MessagesPage() {
   );
   const selectedThread =
     threads.find((thread) => thread.id === selectedThreadId) ?? null;
+  const replyComposerThread =
+    threads.find((thread) => thread.id === replyComposerThreadId) ?? null;
   const draftPromptThread =
     threads.find((thread) => thread.id === draftPromptThreadId) ?? null;
 
@@ -1120,6 +2415,7 @@ export function MessagesPage() {
 
   const handleSelectThread = (threadId: string) => {
     const thread = threads.find((currentThread) => currentThread.id === threadId);
+    setReplyComposerThreadId(null);
 
     if (thread?.draftText.trim()) {
       setDraftPromptThreadId(threadId);
@@ -1132,6 +2428,7 @@ export function MessagesPage() {
   const handleContinueDraft = () => {
     if (draftPromptThreadId) {
       setSelectedThreadId(draftPromptThreadId);
+      setReplyComposerThreadId(draftPromptThreadId);
     }
 
     setDraftPromptThreadId(null);
@@ -1145,12 +2442,144 @@ export function MessagesPage() {
     }));
   };
 
-  const handleReviewComplete = (threadId: string) => {
-    updateThread(threadId, (thread) => ({
-      ...thread,
-      riskReviewRequired: false,
-      status: 'inProgress',
-    }));
+  const handleOpenReplyComposer = (threadId: string) => {
+    setSelectedThreadId(threadId);
+    setReplyComposerThreadId(threadId);
+  };
+
+  const handleReviewComplete = (
+    threadId: string,
+    review: RiskReviewSubmission,
+  ) => {
+    updateThread(threadId, (thread) => {
+      if (!thread.analysis) {
+        return thread;
+      }
+
+      const modifiedAt = formatNow();
+      const beforeLevel =
+        thread.analysis.teacherReviewedRiskLevel ??
+        thread.analysis.systemRiskLevel;
+      const beforeLevelIndex = systemRiskReviewLevels.indexOf(beforeLevel);
+      const afterLevelIndex = systemRiskReviewLevels.indexOf(review.level);
+      const isDownwardReview = afterLevelIndex < beforeLevelIndex;
+      const isUpwardReview = afterLevelIndex > beforeLevelIndex;
+      const isEmergencyDowngrade =
+        beforeLevel === 'emergency' && isDownwardReview;
+      const reviewReason = review.reason.trim();
+
+      if (isDownwardReview && !reviewReason) {
+        return thread;
+      }
+
+      if (isEmergencyDowngrade) {
+        return {
+          ...thread,
+          analysis: {
+            ...thread.analysis,
+            activityLogs: [
+              ...thread.analysis.activityLogs,
+              {
+                id: `${thread.id}-emergency-downgrade-${
+                  thread.analysis.activityLogs.length + 1
+                }`,
+                time: modifiedAt,
+                actor: '조예인 선생님',
+                action: '긴급 위험도 하향 확인 요청',
+                detail: `수정 전 위험도: ${systemRiskLabel[beforeLevel]}, 요청 위험도: ${systemRiskLabel[review.level]}, 수정 사유: "${reviewReason}", 수정자: 조예인 선생님, 수정 시각: ${modifiedAt}. 관리자 또는 별도 책임자의 확인 후 반영됩니다.`,
+              },
+            ],
+            teacherReviewReason: reviewReason,
+          },
+        };
+      }
+
+      const action = isDownwardReview
+        ? '위험도 하향 수정'
+        : isUpwardReview
+          ? '위험도 상향 수정'
+          : '위험도 검토 완료';
+      const reasonDetail = reviewReason
+        ? `수정 사유: "${reviewReason}"`
+        : '수정 사유: 해당 없음';
+
+      return {
+        ...thread,
+        analysis: {
+          ...thread.analysis,
+          activityLogs: [
+            ...thread.analysis.activityLogs,
+            {
+              id: `${thread.id}-review-${thread.analysis.activityLogs.length + 1}`,
+              time: modifiedAt,
+              actor: '조예인 선생님',
+              action,
+              detail: `수정 전 위험도: ${systemRiskLabel[beforeLevel]}, 수정 후 위험도: ${systemRiskLabel[review.level]}, ${reasonDetail}, 수정자: 조예인 선생님, 수정 시각: ${modifiedAt}.`,
+            },
+          ],
+          safetyLock: false,
+          teacherReviewReason: reviewReason || undefined,
+          teacherReviewedRiskLevel: review.level,
+        },
+        risk: systemRiskTone[review.level],
+        riskReviewRequired: false,
+        status: 'inProgress',
+      };
+    });
+  };
+
+  const handleReviewRequest = (threadId: string) => {
+    updateThread(threadId, (thread) => {
+      if (!thread.analysis) {
+        return thread;
+      }
+
+      return {
+        ...thread,
+        analysis: {
+          ...thread.analysis,
+          activityLogs: [
+            ...thread.analysis.activityLogs,
+            {
+              id: `${thread.id}-review-request-${
+                thread.analysis.activityLogs.length + 1
+              }`,
+              time: formatNow(),
+              actor: '조예인 선생님',
+              action: '위험도 재검토 요청',
+              detail: '담당자에게 위험도 재검토를 요청했습니다.',
+            },
+          ],
+        },
+      };
+    });
+  };
+
+  const handleOriginalViewed = (threadId: string, evidence?: string) => {
+    updateThread(threadId, (thread) => {
+      if (!thread.analysis) {
+        return thread;
+      }
+
+      return {
+        ...thread,
+        analysis: {
+          ...thread.analysis,
+          activityLogs: [
+            ...thread.analysis.activityLogs,
+            {
+              id: `${thread.id}-original-${thread.analysis.activityLogs.length + 1}`,
+              time: formatNow(),
+              actor: '조예인 선생님',
+              action: '원문 확인',
+              detail: evidence
+                ? `판단 근거 "${evidence}" 위치를 원문에서 확인했습니다.`
+                : '학부모 원문 전체를 확인했습니다.',
+            },
+          ],
+        },
+      };
+    });
   };
 
   const handleSubmitReply = (threadId: string) => {
@@ -1182,6 +2611,7 @@ export function MessagesPage() {
         status: 'complete',
       };
     });
+    setReplyComposerThreadId(null);
   };
 
   const tabItems = [
@@ -1244,6 +2674,27 @@ export function MessagesPage() {
     isSidebarCollapsed ? ' is-sidebar-collapsed' : ''
   }`;
 
+  if (replyComposerThread) {
+    return (
+      <section className={pageClassName} aria-labelledby="board-composer-title">
+        <Sidebar
+          activeItem="messages"
+          defaultCollapsed={isSidebarCollapsed}
+          messageCount={2}
+          onCollapsedChange={setIsSidebarCollapsed}
+        />
+        <main className="board-detail-page">
+          <ReplyComposerPage
+            onBack={() => setReplyComposerThreadId(null)}
+            onDraftChange={handleDraftChange}
+            onSubmitReply={handleSubmitReply}
+            thread={replyComposerThread}
+          />
+        </main>
+      </section>
+    );
+  }
+
   if (selectedThread) {
     return (
       <section className={pageClassName} aria-labelledby="board-detail-title">
@@ -1256,9 +2707,10 @@ export function MessagesPage() {
         <main className="board-detail-page">
           <ThreadDetail
             onBack={() => setSelectedThreadId(null)}
-            onDraftChange={handleDraftChange}
+            onOpenReplyComposer={handleOpenReplyComposer}
+            onOriginalViewed={handleOriginalViewed}
             onReviewComplete={handleReviewComplete}
-            onSubmitReply={handleSubmitReply}
+            onReviewRequest={handleReviewRequest}
             thread={selectedThread}
           />
         </main>
