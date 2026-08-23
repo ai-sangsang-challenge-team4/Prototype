@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "ko-KR"
+tone_instructions: "한국어로 간결하고 실무적인 톤으로 리뷰합니다. 중요한 버그, 접근성, 타입 안정성, 사용자 경험 이슈를 우선합니다."
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  review_details: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "dev"
+    ignore_title_keywords:
+      - "WIP"
+      - "[skip review]"
+
+  path_filters:
+    - "!dist/**"
+    - "!build/**"
+    - "!coverage/**"
+    - "!node_modules/**"
+    - "!package-lock.json"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.webp"
+
+  path_instructions:
+    - path: "src/**/*.tsx"
+      instructions: "React 컴포넌트는 기존 컴포넌트 구조와 스타일 규칙을 우선합니다. props와 상태는 TypeScript 타입 안정성을 유지하고, 접근성 속성 및 키보드 사용성을 함께 확인합니다."
+    - path: "src/**/*.css"
+      instructions: "기존 디자인 토큰과 반응형 규칙을 우선합니다. 텍스트 겹침, 모바일 폭 깨짐, 과도한 specificity, 불필요한 중첩 카드를 중점적으로 확인합니다."
+    - path: "src/**/*.ts"
+      instructions: "불필요한 any, 암묵적인 런타임 가정, 처리되지 않은 에러, 사용하지 않는 코드가 없는지 확인합니다."
+
+chat:
+  auto_reply: true
+  art: false
