@@ -1,26 +1,46 @@
-const steps = ['아이디어 정리', '화면 흐름 설계', '사용자 테스트'];
+import { useEffect, useState } from 'react';
+import { AppLayout } from './components/layout/AppLayout';
+import { AdminSharePage } from './pages/AdminSharePage';
+import { GuidePage } from './pages/GuidePage';
+import { MessagesPage } from './pages/MessagesPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { findRoute, getRoutePathFromHash } from './routes';
 
 export default function App() {
-  return (
-    <main className="app">
-      <section className="workspace" aria-labelledby="page-title">
-        <div className="intro">
-          <p className="eyebrow">React Prototype</p>
-          <h1 id="page-title">사용자 프로토타입</h1>
-          <p>
-            핵심 화면과 상호작용을 빠르게 검증할 수 있도록 준비된 시작점입니다.
-          </p>
-        </div>
-
-        <div className="panel" aria-label="프로토타입 진행 단계">
-          {steps.map((step, index) => (
-            <article className="step" key={step}>
-              <span>{index + 1}</span>
-              <strong>{step}</strong>
-            </article>
-          ))}
-        </div>
-      </section>
-    </main>
+  const [activePath, setActivePath] = useState(() =>
+    getRoutePathFromHash(window.location.hash),
   );
+  const activeRoute = findRoute(activePath);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActivePath(getRoutePathFromHash(window.location.hash));
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  if (activePath === '/guide') {
+    return <GuidePage />;
+  }
+
+  if (activePath === '/admin') {
+    return (
+      <AppLayout activePath={activePath} title={activeRoute.title}>
+        <AdminSharePage />
+      </AppLayout>
+    );
+  }
+
+  if (activePath === '/settings') {
+    return (
+      <AppLayout activePath={activePath} title={activeRoute.title}>
+        <SettingsPage />
+      </AppLayout>
+    );
+  }
+
+  return <MessagesPage />;
 }
